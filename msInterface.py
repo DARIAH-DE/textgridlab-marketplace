@@ -1,6 +1,6 @@
 #!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
-# Time-stamp: <2014-03-28 20:23:41 (kthoden)>
+# Time-stamp: <2014-03-28 20:30:23 (kthoden)>
 
 __author__="Klaus Thoden"
 __date__="2014-03-13"
@@ -106,6 +106,25 @@ print("""Description is %s""" % plDesc)
 
 # this is how an entry looks like
 # entry should be written with XML-aware module
+# assign ID
+# Get name (content/title)
+# What URL?
+# body/CDATA: plDesc
+# category should be taken from Label
+# changed?
+# companyname: constant?
+# created: use old values? or from content/createdDate (but would need to be transformed)
+# eclipseversion?
+# favorited?
+# foundationmember?
+# homepageurl?
+# image: path has to be completed
+# ius/iu: do we need a hidden field on the wikipage then?
+# license
+# owner
+# resource?
+# screenshot: see Logo
+# updateurl: also hidden field?
 zwei = """
     <node id="2" name="MEISE Noteneditor" url="http://ocropus.rz-berlin.mpg.de/~kthoden/marketplace/content/2">
       <body><![CDATA[Mit dem Noten-Editor MEISE können Notentexte in MEI graphisch kodiert, bearbeitet und auf einem einfachen Niveau auch dargestellt werden. So wird u.a. die Visualisierung von Varianten erheblich erleichtert.]]></body>
