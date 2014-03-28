@@ -1,6 +1,6 @@
 #!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
-# Time-stamp: <2014-03-28 20:09:25 (kthoden)>
+# Time-stamp: <2014-03-28 20:23:41 (kthoden)>
 
 __author__="Klaus Thoden"
 __date__="2014-03-13"
@@ -22,7 +22,6 @@ def getConfluencePluginData(state="offline"):
     """
     import urllib
     import sys
-
 
     if state=="offline":
         baseURL = "file:///Users/kthoden/TextGrid/Marketsplace/dev/"
@@ -103,5 +102,31 @@ plSource = gingerAle.xpath('/table/tbody/tr[7]/td/a')[0].text
 plProjects = gingerAle.xpath('/table/tbody/tr[8]/td')[0].text
 plFiles = gingerAle.xpath('/table/tbody/tr[9]/td')[0].text
 
-print("""License is %s""" % plLicense)
+print("""Description is %s""" % plDesc)
 
+# this is how an entry looks like
+# entry should be written with XML-aware module
+zwei = """
+    <node id="2" name="MEISE Noteneditor" url="http://ocropus.rz-berlin.mpg.de/~kthoden/marketplace/content/2">
+      <body><![CDATA[Mit dem Noten-Editor MEISE können Notentexte in MEI graphisch kodiert, bearbeitet und auf einem einfachen Niveau auch dargestellt werden. So wird u.a. die Visualisierung von Varianten erheblich erleichtert.]]></body>
+      <categories>
+        <categories id="4" name="MEISE Noteneditor" url="http://ocropus.rz-berlin.mpg.de/~kthoden/marketplace/taxonomy/term/tg01,4"/>
+      </categories>
+      <changed>0</changed>
+      <companyname><![CDATA[TextGrid]]></companyname>
+      <created>1334158130</created>
+      <eclipseversion><![CDATA[]]></eclipseversion>
+      <favorited>0</favorited>
+      <foundationmember>1</foundationmember>
+      <homepageurl><![CDATA[http://www.textgrid.de]]></homepageurl>
+      <image><![CDATA[https://develop.sub.uni-goettingen.de/repos/textgrid/trunk/lab/noteeditor/info.textgrid.lab.noteeditor/icons/meise_64.png]]></image>
+      <ius>
+        <iu>info.textgrid.lab.noteeditor.feature.feature.group</iu>
+      </ius>
+      <license/>
+      <owner>TextGrid</owner>
+      <resource/>
+      <screenshot>https://develop.sub.uni-goettingen.de/repos/textgrid/trunk/lab/noteeditor/info.textgrid.lab.noteeditor.feature/Screenshot_MEISE_2012-04-20.png</screenshot>
+      <updateurl><![CDATA[http://download.digital-humanities.de/updates/textgridlab/noteeditor]]></updateurl>
+    </node>
+"""
