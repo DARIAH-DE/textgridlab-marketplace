@@ -1,6 +1,6 @@
 #!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
-# Time-stamp: <2014-03-13 13:08:12 (kthoden)>
+# Time-stamp: <2014-03-28 18:57:28 (kthoden)>
 
 __author__="Klaus Thoden"
 __date__="2014-03-13"
@@ -12,8 +12,7 @@ something the Eclipse Marketplace understands."""
 # ri: http://www.atlassian.com/schema/confluence/4/ri/
 # ac: http://www.atlassian.com/schema/confluence/4/ac/
 
-
-def getPluginData():
+def getConfluencePluginData(state="offline"):
     """
     Use python's lxml to get the Plugin pages from Confluence.
     REST documentation on https://docs.atlassian.com/atlassian-confluence/REST/latest/
@@ -22,14 +21,19 @@ def getPluginData():
     import sys
     from lxml import etree
 
-    baseURL = "https://dev2.dariah.eu/wiki/rest/prototype/1/content/"
-    ID = "9012111"
-    # ID = "27329537" # digilib, not yet accessible through script, as I am not logged in
+    if state=="offline":
+        baseURL = "file:///Users/kthoden/TextGrid/Marketsplace/dev/"
+        ID = "27329537"
+    else:
+        baseURL = "https://dev2.dariah.eu/wiki/rest/prototype/1/content/"
+        # ID = "27329537" # digilib, not yet accessible through script, as I am not logged in
+        ID = "9012111"
 
     fullpath = baseURL + ID
 
     try:
         usock=urllib.urlopen(fullpath)
+        print("Getting info from %s"% fullpath)
     except IOError as (errno, strerror):
         print("I/O error ({0}): {1}".format(errno,strerror))
         sys.exit()
@@ -41,11 +45,17 @@ def getPluginData():
         sys.exit()
     usock.close()
 
-    pluginTitle = pluginInfo.xpath('/content/title')[0].text
+    return pluginInfo
+## def getConfluencePluginData ends here
 
-    print("""Title of the page is %s""" % pluginTitle)
-    
+def parseConfluenceBody():
+    """Body needs to be transformed a bit."""
+## def parseConfluenceBody ends here
+
 # main bit
-getPluginData()
+bitterLemon = getConfluencePluginData()
+
+pluginTitle = bitterLemon.xpath('/content/title')[0].text
+print("""Title of the page is %s""" % pluginTitle)
 
 print("seems to work")
