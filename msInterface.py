@@ -1,6 +1,6 @@
 #!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
-# Time-stamp: <2014-03-28 20:30:23 (kthoden)>
+# Time-stamp: <2014-04-03 18:28:56 (kthoden)>
 
 __author__="Klaus Thoden"
 __date__="2014-03-13"
@@ -104,27 +104,30 @@ plFiles = gingerAle.xpath('/table/tbody/tr[9]/td')[0].text
 
 print("""Description is %s""" % plDesc)
 
-# this is how an entry looks like
-# entry should be written with XML-aware module
-# assign ID
-# Get name (content/title)
-# What URL?
-# body/CDATA: plDesc
-# category should be taken from Label
-# changed?
-# companyname: constant?
-# created: use old values? or from content/createdDate (but would need to be transformed)
-# eclipseversion?
-# favorited?
-# foundationmember?
-# homepageurl?
-# image: path has to be completed
-# ius/iu: do we need a hidden field on the wikipage then?
-# license
-# owner
-# resource?
-# screenshot: see Logo
-# updateurl: also hidden field?
+msURL = "http://ocropus.rz-berlin.mpg.de/~kthoden/marketplace/content/"
+iuID = "2"
+
+outputXML = etree.Element("node", id=iuID, name=plTitle, url=msURL+iuID) # assign an ID (hash from Title or so?), what URL?
+bodyEle = etree.SubElement(outputXML,"body")
+bodyEle.text = "<![CDATA[%s]]>" % gingerAle.xpath('/table/tbody/tr[2]/td')[0].text # CDATA difficult with lxml
+catEle = etree.SubElement(outputXML,"categories") # taken from Label of wikipage
+changeEle = etree.SubElement(outputXML,"changed") # how to do that?
+companyEle = etree.SubElement(outputXML,"companyname") # constantly TextGrid?
+creatEle = etree.SubElement(outputXML,"created")       # upload of plugin?, use old values here?
+eclipseEle = etree.SubElement(outputXML,"eclipseversion") # what here?
+favEle = etree.SubElement(outputXML,"favorited")          # would that be ticked on the wiki page?
+foundationEle = etree.SubElement(outputXML,"foundationmember") # this?
+urlEle = etree.SubElement(outputXML,"homepageurl")
+imageEle = etree.SubElement(outputXML,"image") # path has to be completed
+iusEle = etree.SubElement(outputXML,"ius")     # just a container
+iuEle = etree.SubElement(iusEle,"iu")          # where to store that information?
+licenseEle = etree.SubElement(outputXML,"license") # yes
+ownerEle = etree.SubElement(outputXML,"owner")     # who
+resourceEle = etree.SubElement(outputXML,"resource") # this?
+scrshotEle = etree.SubElement(outputXML,"screenshot") # see logo
+updateEle = etree.SubElement(outputXML,"updateurl")   # also hidden field?
+print(etree.tostring(outputXML,pretty_print=True))
+
 zwei = """
     <node id="2" name="MEISE Noteneditor" url="http://ocropus.rz-berlin.mpg.de/~kthoden/marketplace/content/2">
       <body><![CDATA[Mit dem Noten-Editor MEISE können Notentexte in MEI graphisch kodiert, bearbeitet und auf einem einfachen Niveau auch dargestellt werden. So wird u.a. die Visualisierung von Varianten erheblich erleichtert.]]></body>
