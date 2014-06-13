@@ -1,32 +1,55 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Time-stamp: <2014-06-12 18:57:44 (kthoden)>
+# Time-stamp: <2014-06-13 11:07:50 (kthoden)>
 
 __author__="Klaus Thoden"
 __date__="2014-03-13"
 __doc__ = """Getting a page out of the Confluence system and convert it to
 something the Eclipse Marketplace understands.
 https://dev2.dariah.eu/wiki/rest/prototype/1/content/27329537
+
+Do we need content negotiation?
+If the Lab calls, redirect it to /api/p and deliver the XML
+A browser might want to go to $MS/content/3 and expects the plugin info there
+
+
+For the pages to be served by the service then, we need several inputs:
+- the data parsed out of the corresponding wiki pages
+- a config file
+- some other stuff?
+
+The Lab sends a request. In my theory, it will first end in $MS/api/p where it gets information about:
+- msID
+- msName
+- the categories with id and name and a generated url pointing to the taxonomies
+
+we can browse that url. taxonomy knows about
+- who is in that group
+- their internal id
+- human readable name
+- link to that node
+
+that link (content) knows everything and more.
+
+what about the catalogs?
+This simply has to be there, I think
+
+Things to put on the server
+- directory with image files
 """
 
 # imports
 from lxml import etree
+import configparser
 
 # Atlassian namespaces
 # http://www.amnet.net.au/~ghannington/confluence/docs/confluence/g-ri_confluence.ri.html
 NS={'ri':'http://www.atlassian.com/schema/confluence/4/ri/', 
     'ac':'http://www.atlassian.com/schema/confluence/4/ac/' }
 
-# URL des Marketplace, von der alles abgeleitet wird
-
-msDict = dict({
-    "id" : "tg01",
-    "name" : "textgridMS",
-    "msURL" : "http://ocropus.rz-berlin.mpg.de/~kthoden/marketplace/",
-    "categories" : (("external","6"),("beta","5"),("stable","4")),
-    "title" : "TextGrid Marketsplace",
-    "msIcon" : "files/tg128.png"
-})
+config = configparser.ConfigParser()
+config.read("ms.conf")
+conGen = config['General']
 
 # schreibt Thorsten
 # p2-Update-Site enthält (in diesem Falle
@@ -139,7 +162,7 @@ def buildMPcatApiP(msDict):
     """info on catalog"""
     mplace = etree.Element("marketplace")
     catalogs = etree.SubElement(mplace,"catalogs")
-    catalog = etree.SubElement(catalogs,"catalog", id=msDict["id"], title=msDict["title"], url=msDict["msURL"], selfContained="0",icon=msDict["msURL"]+msDict["msIcon"])
+    catalog = etree.SubElement(catalogs,"catalog", id=msDict["id"], title=msDict["title"], url=msDict["URL"], selfContained="0",icon=msDict["URL"]+msDict["icon"])
     desc = etree.SubElement(catalog,"description").text = "The features of TextGrid"
     depRep = etree.SubElement(catalog,"dependenciesRepository")
     wizard = etree.SubElement(catalog,"wizard", title="")
@@ -201,10 +224,10 @@ def buildMPfeaturedApiP():
 
 def buildMPtaxonomy():
     mplace = etree.Element("marketplace")
-    category = etree.SubElement(mplace,"category",id=msDict["categories"][XXX_VAR_XXX][1],name=msDict["categories"][XXX_VAR_XXX][0],url=msDict["msURL"]+"taxonomy/term/"+msDict["id"]+","+cat[1]))
+    category = etree.SubElement(mplace,"category",id=msDict["categories"][XXX_VAR_XXX][1],name=msDict["categories"][XXX_VAR_XXX][0],url=msDict["msURL"]+"taxonomy/term/"+msDict["id"]+","+cat[1])
     # wiederhole die zwei nächsten für alle, die in der entsprechenden Gruppe sind
-     node = etree.SubElement(category,"node",id=unit[0],name=unit[1],url=msDict["msURL"]+"content/"+unit[0])
-     fav = etree.SubElement(category,"favorited").text = "0"
+    node = etree.SubElement(category,"node",id=unit[0],name=unit[1],url=msDict["msURL"]+"content/"+unit[0])
+    fav = etree.SubElement(category,"favorited").text = "0"
 # def buildMPtaxonomy ends here
 
 def main():
