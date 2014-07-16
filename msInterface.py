@@ -41,6 +41,7 @@ Things to put on the server
 # imports
 from lxml import etree
 import configparser
+from datetime import datetime
 
 # Atlassian namespaces
 # http://www.amnet.net.au/~ghannington/confluence/docs/confluence/g-ri_confluence.ri.html
@@ -161,6 +162,7 @@ def buildMPapiP(msDict):
 def buildMPcatApiP(msDict):
     """info on catalog"""
     mplace = etree.Element("marketplace")
+    mplace.append(etree.Comment("File generated on %s" % datetime.now().strftime("%Y-%m-%dT%H:%M:%S")))
     catalogs = etree.SubElement(mplace,"catalogs")
     catalog = etree.SubElement(catalogs,"catalog", id=msDict["id"], title=msDict["title"], url=msDict["URL"], selfContained="0",icon=msDict["URL"]+msDict["icon"])
     desc = etree.SubElement(catalog,"description").text = "The features of TextGrid"
