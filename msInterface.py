@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Time-stamp: <2014-06-13 11:07:50 (kthoden)>
+# Time-stamp: <2014-06-13 16:37:11 (kthoden)>
 
 __author__="Klaus Thoden"
 __date__="2014-03-13"
@@ -11,7 +11,6 @@ https://dev2.dariah.eu/wiki/rest/prototype/1/content/27329537
 Do we need content negotiation?
 If the Lab calls, redirect it to /api/p and deliver the XML
 A browser might want to go to $MS/content/3 and expects the plugin info there
-
 
 For the pages to be served by the service then, we need several inputs:
 - the data parsed out of the corresponding wiki pages
@@ -75,11 +74,15 @@ instUnits = dict(
      # "base-extras",
 })
 
-
 def getConfluencePluginData(state="offline"):
     """
     Use python's lxml to get the Plugin pages from Confluence.
     REST documentation on https://docs.atlassian.com/atlassian-confluence/REST/latest/
+
+    using curl, I can access restricted pages via command line:
+
+    curl -u KlausThoden -X GET https://dev2.dariah.eu/wiki/rest/prototype/1/content/27329537
+
     """
     import urllib.request, urllib.parse, urllib.error
     import sys
@@ -147,22 +150,30 @@ def parseConfluenceBody(codedBody):
     return bodyInfo
 ## def parseConfluenceBody ends here
 
-def buildMPapiP(msDict):
-    """construct of one answer"""
+def buildMPapiP(config):
+    """Construct of one answer. Requires only info from config file."""
+    conGen=config['General']
     mplace = etree.Element("marketplace")
-    market = etree.SubElement(mplace,"market", id=msDict["id"], name=msDict["name"], url=msDict["msURL"]+"category/markets/"+msDict["id"])
+    market = etree.SubElement(mplace,"market", id=conGen['id'], name=conGen['name'], url=conGen["URL"]+"category/markets/"+conGen["id"])
+
     catCount=1
-    for cat in msDict["categories"]:
-        etree.SubElement(market,"category",count=str(catCount), id=cat[1],name=cat[0], url=msDict["msURL"]+"taxonomy/term/"+msDict["id"]+","+cat[1])
+    conCat = config["Categories"]
+    for key in conCat:
+        etree.SubElement(market,"category",count=str(catCount), id=conCat[key],name=key, url=str(conGen["URL"])+"taxonomy/term/"+conGen["id"]+","+conCat[key])
         catCount += 1
     return mplace
 # def buildMPapiP ends here
 
-def buildMPcatApiP(msDict):
-    """info on catalog"""
+def buildMPcatApiP(config):
+    """The info on catalog. According to server log, this is the first
+    thing the Lab looks for. Requires only info from config file.
+    After choosing that catalog, the root is called.
+    """
+    conGen=config['General']
+
     mplace = etree.Element("marketplace")
     catalogs = etree.SubElement(mplace,"catalogs")
-    catalog = etree.SubElement(catalogs,"catalog", id=msDict["id"], title=msDict["title"], url=msDict["URL"], selfContained="0",icon=msDict["URL"]+msDict["icon"])
+    catalog = etree.SubElement(catalogs,"catalog", id=conGen["id"], title=conGen["title"], url=conGen["URL"], selfContained="0",icon=conGen["URL"]+conGen["icon"])
     desc = etree.SubElement(catalog,"description").text = "The features of TextGrid"
     depRep = etree.SubElement(catalog,"dependenciesRepository")
     wizard = etree.SubElement(catalog,"wizard", title="")
@@ -265,31 +276,6 @@ def main():
     node = buildMPnodeApiP()
 
     print(etree.tostring(node,pretty_print=True,encoding='unicode'))
-
-    zwei = """
-    <node id="2" name="MEISE Noteneditor" url="http://ocropus.rz-berlin.mpg.de/~kthoden/marketplace/content/2">
-      <body><![CDATA[Mit dem Noten-Editor MEISE können Notentexte in MEI graphisch kodiert, bearbeitet und auf einem einfachen Niveau auch dargestellt werden. So wird u.a. die Visualisierung von Varianten erheblich erleichtert.]]></body>
-      <categories>
-        <categories id="4" name="MEISE Noteneditor" url="http://ocropus.rz-berlin.mpg.de/~kthoden/marketplace/taxonomy/term/tg01,4"/>
-      </categories>
-      <changed>0</changed>
-      <companyname><![CDATA[TextGrid]]></companyname>
-      <created>1334158130</created>
-      <eclipseversion><![CDATA[]]></eclipseversion>
-      <favorited>0</favorited>
-      <foundationmember>1</foundationmember>
-      <homepageurl><![CDATA[http://www.textgrid.de]]></homepageurl>
-      <image><![CDATA[https://develop.sub.uni-goettingen.de/repos/textgrid/trunk/lab/noteeditor/info.textgrid.lab.noteeditor/icons/meise_64.png]]></image>
-      <ius>
-        <iu>info.textgrid.lab.noteeditor.feature.feature.group</iu>
-      </ius>
-      <license/>
-      <owner>TextGrid</owner>
-      <resource/>
-      <screenshot>https://develop.sub.uni-goettingen.de/repos/textgrid/trunk/lab/noteeditor/info.textgrid.lab.noteeditor.feature/Screenshot_MEISE_2012-04-20.png</screenshot>
-      <updateurl><![CDATA[http://download.digital-humanities.de/updates/textgridlab/noteeditor]]></updateurl>
-    </node>
-"""
 
 if __name__ == "__main__":
     main()
