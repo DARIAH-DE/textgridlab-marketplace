@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Time-stamp: <2014-06-13 16:37:11 (kthoden)>
+# Time-stamp: <2014-07-20 22:07:27 (klaus)>
 
 __author__="Klaus Thoden"
 __date__="2014-03-13"
@@ -35,11 +35,42 @@ This simply has to be there, I think
 
 Things to put on the server
 - directory with image files
+
+Query by Eclipse looks like this:
+http://ocropus.rz-berlin.mpg.de/~kthoden/marketplace/featured/6/api/p?product=info.textgrid.lab.core.application.base_product&os=macosx&runtime.version=3.7.0.v20110110&client=org.eclipse.epp.mpc.core&java.version=1.6.0_65&product.version=0.0.2.201310011243&ws=cocoa&nl=de_DE
+
+We should maybe catch and retain all those arguments:
+product=info.textgrid.lab.core.application.base_product
+os=macosx
+runtime.version=3.7.0.v20110110
+client=org.eclipse.epp.mpc.core
+java.version=1.6.0_65
+product.version=0.0.2.201310011243
+ws=cocoa
+nl=de_DE
+
+Reference: http://wiki.eclipse.org/Marketplace/REST
+
+        - [X] $baseURL/api/p :: listing of markets and categories: http://textgridlab.org/marketplace/api/p
+        - [ ] $baseURL/catalogs/api/p :: obtain all available catalogs: http://textgridlab.org/marketplace/catalogs/api/p
+        - [ ] $baseURL/taxonomy/term/[category id],[market id]/api/p :: listing
+             of a specific market and category: http://textgridlab.org/marketplace/taxonomy/term/8a207eea3542f8b9013542f8f0d40001,6/api/p
+        - [ ] $baseURL/content/[title]/api/p :: return a specific listing: http://textgridlab.org/marketplace/
+        - [ ] $baseURL/node/[node id]/api/p :: return a specific listing: http://textgridlab.org/marketplace/
+        - [ ] $baseURL/api/p/search/apachesolr_search/[query]?page=[page num]&filters=[filters] :: Return
+             search results: http://textgridlab.org/marketplace/
+        - [X] $baseURL/featured/api/p :: List of Featured listings: http://textgridlab.org/marketplace/featured/api/p
+        - [X] $baseURL/recent/api/p :: Recently updated or added listings: http://textgridlab.org/marketplace/recent/api/p
+        - [X] $baseURL/favorites/top/api/p :: most favourite things: http://textgridlab.org/marketplace/favorites/top/api/p
+        - [X] $baseURL/popular/top/api/p :: most popular by activity: http://textgridlab.org/marketplace/popular/top/api/p
+
+put info on installable Units also in config
 """
 
 # imports
 from lxml import etree
 import configparser
+import argparse
 from datetime import datetime
 
 # Atlassian namespaces
@@ -49,27 +80,17 @@ NS={'ri':'http://www.atlassian.com/schema/confluence/4/ri/',
 
 config = configparser.ConfigParser()
 config.read("ms.conf")
-conGen = config['General']
-
-# schreibt Thorsten
-# p2-Update-Site enthält (in diesem Falle
-# http://www.textgridlab.org/updates/beta). Dazu kommen dann noch
-# die zugehörigen IDs der Installable Units, d.i. in der Regel
-# die ID des entsprechenden Features mit angehängtem
-# ».feature.group«.
-# info.textgrid.lab.noteeditor.feature.feature.group
-p2UpdateSite = "http://www.textgridlab.org/updates/beta"
 
 # we somehow need to know here as well which category (external, beta, stable) this is in
-# first tuple is ID, second the title, third the category
+# in the tuple first is ID, second the title, third the category. We should get this from Confluence
 instUnits = dict(
-    {"linguistics" : ("7","Linguistic Tools"), 
-     "ttle" : ("8","Text Text Linkeditor"), 
-     "collatex": ("4","CollateX"), 
+    {"linguistics" : ("7","Linguistic Tools","4"), 
+     "ttle" : ("8","Text Text Linkeditor","2"), 
+     "collatex": ("4","CollateX","2"), 
      "noteeditor" : ("2","MEISE Noteneditor","4"), 
-     "sadepublish" : ("1","SADE Publish Tool"), 
-     "digilib" : ("3","DigiLib"), 
-     "oxygen" : ("5","Oxygen XML Editor")
+     "sadepublish" : ("1","SADE Publish Tool","2"), 
+     "digilib" : ("3","DigiLib","4"), 
+     "oxygen" : ("5","Oxygen XML Editor","6")
      # missing?
      # "glosses" : (), 
      # "base-extras",
@@ -89,7 +110,8 @@ def getConfluencePluginData(state="offline"):
     import sys
 
     if state=="offline":
-        baseURL = "file:///Users/kthoden/TextGrid/Marketsplace/dev/"
+        baseURL = "file:///home/klaus/tmp/FUCKYOU/Marketsplace/dev/"
+        # baseURL = "file:///Users/kthoden/TextGrid/Marketsplace/dev/"
         ID = "27329537"
     else:
         baseURL = "https://dev2.dariah.eu/wiki/rest/prototype/1/content/"
@@ -151,7 +173,36 @@ def parseConfluenceBody(codedBody):
     return bodyInfo
 ## def parseConfluenceBody ends here
 
-def buildMPapiP(config):
+def compileInfo(pluginData):
+    """Return a dictionary of the things we parsed out of the webpage"""
+    pluginTitle = pluginData.xpath('/content/title')[0].text
+    print("""Title of the page is %s""" % pluginTitle)
+
+    pluginBody = pluginData.xpath('/content/body')[0].text
+
+    # tonic = etree.XML(pluginBody,nsmap=NS)
+    # print(tonic)
+
+    gingerAle = parseConfluenceBody(pluginBody)
+    # print(gingerAle.xpath('//h1')[0].text)
+    # print("""Title taken from the body: %s""" % plTitle)
+    pluginDict = dict({
+        "plTitle" : gingerAle.xpath('/table/tbody/tr[1]/td')[0].text,
+        "plDesc" : gingerAle.xpath('/table/tbody/tr[2]/td')[0].text,
+        "plIcon" : gingerAle.xpath('/table/tbody/tr[3]/td/image/attachment/@filename')[0],
+        "plMaturity" : gingerAle.xpath('/table/tbody/tr[4]/td/structured-macro/parameter[@name="colour"]')[0].text,
+        "plReq" : gingerAle.xpath('/table/tbody/tr[5]/td')[0].text,
+        # OBS, license needs not be a link
+        "plLicense" : gingerAle.xpath('/table/tbody/tr[6]/td/a')[0].text,
+        "plSource" : gingerAle.xpath('/table/tbody/tr[7]/td/a')[0].text,
+        "plProjects" : gingerAle.xpath('/table/tbody/tr[8]/td')[0].text,
+        "plFiles" : gingerAle.xpath('/table/tbody/tr[9]/td')[0].text
+    })
+    # print("""Description is %s""" % pluginDict["plDesc"])
+    return pluginDict
+# def compileInfo ends here
+
+def buildMPapiP():
     """Construct of one answer. Requires only info from config file."""
     conGen=config['General']
     mplace = etree.Element("marketplace")
@@ -160,12 +211,12 @@ def buildMPapiP(config):
     catCount=1
     conCat = config["Categories"]
     for key in conCat:
-        etree.SubElement(market,"category",count=str(catCount), id=conCat[key],name=key, url=str(conGen["URL"])+"taxonomy/term/"+conGen["id"]+","+conCat[key])
+        etree.SubElement(market,"category",count=str(catCount), id=key,name=conCat[key], url=str(conGen["URL"])+"taxonomy/term/"+conGen["id"]+","+key)
         catCount += 1
     return mplace
 # def buildMPapiP ends here
 
-def buildMPcatApiP(config):
+def buildMPcatApiP():
     """The info on catalog. According to server log, this is the first
     thing the Lab looks for. Requires only info from config file.
     After choosing that catalog, the root is called.
@@ -186,15 +237,30 @@ def buildMPcatApiP(config):
     return mplace
 # def buildMPcatApiP ends here
 
-def buildMPnodeApiP(unit,plug):
-    """info on installable Unit"""
+def buildMPtaxonomy(marID,catID,instUnits):
+    """
+    """
+
     mplace = etree.Element("marketplace")
-    node = etree.SubElement(mplace,"node", id=instUnits[unit[0]], name=instUnits[unit[1]], url=msDict["msURL"]+instUnits[unit[0]])
+    conCat = config["Categories"]
+    print(conCat[catID])
+    category = etree.SubElement(mplace,"category",id=catID,name=conCat[catID],url=config["General"]["URL"]+"taxonomy/term/"+marID+","+catID)
+    # wiederhole die zwei nächsten für alle, die in der entsprechenden Gruppe sind
+    for iu in instUnits.items():
+        if iu[1][2] == catID:
+            node = etree.SubElement(category,"node",id=iu[1][0],name=iu[1][1],url=config["General"]["URL"]+"content/"+iu[1][0])
+            fav = etree.SubElement(category,"favorited").text = "0"
+    return mplace
+# def buildMPtaxonomy ends here
+
+def buildMPnodeApiP(instUnits,plugName):
+    """info on installable Unit"""
+    node = etree.Element("node",id=instUnits[plugName][0], name=instUnits[plugName][1], url=config["General"]["URL"]+instUnits[plugName][0])
     bodyEle = etree.SubElement(node,"body").text = etree.CDATA([plug["plDesc"]])
     # taken from Label of wikipage
     catEle = etree.SubElement(node,"categories")
     # noch nicht ganz fertig!
-    category = etree.SubElement(catEle,"categories",id=unit[2],name=unit[1],url=msDict["msURL"]+"taxonomy/term/"+msDict["id"]+","+cat[1])
+    category = etree.SubElement(catEle,"categories",id=instUnits[plugName][2],name=instUnits[plugName][1],url=config["General"]["URL"]+"taxonomy/term/"+config["General"]["id"]+","+instUnits[plugName][2])
     # how to do that?
     changeEle = etree.SubElement(node,"changed").text = "0"
     # constantly TextGrid?
@@ -212,7 +278,7 @@ def buildMPnodeApiP(unit,plug):
     # just a container
     iusEle = etree.SubElement(node,"ius")
     # where to store that information?
-    iuEle = etree.SubElement(iusEle,"iu").text = "info.textgrid.lab.noteeditor.feature.feature.group"
+    iuEle = etree.SubElement(iusEle,"iu").text = "info.textgrid.lab.%s.feature.feature.group" % plugName
     licenseEle = etree.SubElement(node,"license").text = "URL!"
     # who is the owner?
     ownerEle = etree.SubElement(node,"owner").text = TextGrid
@@ -222,6 +288,8 @@ def buildMPnodeApiP(unit,plug):
     scrshotEle = etree.SubElement(node,"screenshot").text = "https://develop.sub.uni-goettingen.de/repos/textgrid/trunk/lab/noteeditor/info.textgrid.lab.noteeditor.feature/Screenshot_MEISE_2012-04-20.png"
     # also hidden field?
     updateEle = etree.SubElement(node,"updateurl").text = etree.CDATA("http://download.digital-humanities.de/updates/textgridlab/noteeditor")
+
+    return node
 # def buildMPnodeApiP ends here
 
 def buildMPfeaturedApiP():
@@ -232,52 +300,73 @@ def buildMPfeaturedApiP():
     mplace = etree.Element("marketplace")
     featured = etree.SubElement(mplace,"featured",count=numFeat)
     # make the nodes here as a subElement of featured
-    # for i in …
+    for i in featuredList:
+        
+        i = buildMPnodeApiP(config,instUnits,plugName,plDict)
+        i = etree.SubElement(featured)
+
+    return mplace
 # def buildMPfeaturedApiP ends here
 
-def buildMPtaxonomy():
-    mplace = etree.Element("marketplace")
-    category = etree.SubElement(mplace,"category",id=msDict["categories"][XXX_VAR_XXX][1],name=msDict["categories"][XXX_VAR_XXX][0],url=msDict["msURL"]+"taxonomy/term/"+msDict["id"]+","+cat[1])
-    # wiederhole die zwei nächsten für alle, die in der entsprechenden Gruppe sind
-    node = etree.SubElement(category,"node",id=unit[0],name=unit[1],url=msDict["msURL"]+"content/"+unit[0])
-    fav = etree.SubElement(category,"favorited").text = "0"
-# def buildMPtaxonomy ends here
+def prepareConf():
+    # returns pluginInfo (XML Data)
+    sho = getConfluencePluginData
+    body = parseConfluenceBody(sho)
+    # returns a dictionary
+    return compileInfo(body)
+# def prepareConf ends here
 
 def main():
-    bitterLemon = getConfluencePluginData("offline")
+    parser = argparse.ArgumentParser()
+    msActions = parser.add_mutually_exclusive_group()
+    msActions.add_argument("-m","--main",help="listing of markets and categories",action="store_true")
+    msActions.add_argument("-c","--catalogs",help="obtain all available catalogs",action="store_true")
+    msActions.add_argument("-t","--taxonomy",help="listing of specific market or category",action="store_true")
+    msActions.add_argument("-co","--content",help="return a specific listing",action="store_true")
+    msActions.add_argument("-n","--node",help="return a specific listing",action="store_true")
+    msActions.add_argument("-s","--search",help="return search results",action="store_true")
+    msActions.add_argument("-f","--featured",help="list of Featured listings",action="store_true")
+    msActions.add_argument("-r","--recent",help="recently updated or added listings",action="store_true")
+    msActions.add_argument("-fa","--favorites",help="most favourite things",action="store_true")
+    msActions.add_argument("-p","--popular",help="most popular by activity",action="store_true")
 
-    pluginTitle = bitterLemon.xpath('/content/title')[0].text
-    print("""Title of the page is %s""" % pluginTitle)
+    parser.add_argument("-cId","--categoryId",help="ID of category")
+    parser.add_argument("-mId","--marketId",help="ID of market")
+    parser.add_argument("-ti","--title",help="title of a plugin?")
+    parser.add_argument("-no","--nodeTitle",help="title of a node?")
+    parser.add_argument("-q","--query",help="query string")
+    # things the client tells us:
+    parser.add_argument("--product")
+    parser.add_argument("--os")
+    parser.add_argument("--runtime.version")
+    parser.add_argument("--client")
+    parser.add_argument("--java.version")
+    parser.add_argument("--product.version")
+    parser.add_argument("--ws",help="returns cocoa in case of apple")
+    parser.add_argument("--nl",help="Language")
 
-    pluginBody = bitterLemon.xpath('/content/body')[0].text
+    args=parser.parse_args()
 
-    # tonic = etree.XML(pluginBody,nsmap=NS)
-    # print(tonic)
-
-    gingerAle = parseConfluenceBody(pluginBody)
-    # print(gingerAle.xpath('//h1')[0].text)
-    # print("""Title taken from the body: %s""" % plTitle)
-    pluginDict = dict({
-        "plTitle" : gingerAle.xpath('/table/tbody/tr[1]/td')[0].text,
-        "plDesc" : gingerAle.xpath('/table/tbody/tr[2]/td')[0].text,
-        "plIcon" : gingerAle.xpath('/table/tbody/tr[3]/td/image/attachment/@filename')[0],
-        "plMaturity" : gingerAle.xpath('/table/tbody/tr[4]/td/structured-macro/parameter[@name="colour"]')[0].text,
-        "plReq" : gingerAle.xpath('/table/tbody/tr[5]/td')[0].text,
-        # OBS, license needs not be a link
-        "plLicense" : gingerAle.xpath('/table/tbody/tr[6]/td/a')[0].text,
-        "plSource" : gingerAle.xpath('/table/tbody/tr[7]/td/a')[0].text,
-        "plProjects" : gingerAle.xpath('/table/tbody/tr[8]/td')[0].text,
-        "plFiles" : gingerAle.xpath('/table/tbody/tr[9]/td')[0].text
-    })
-    print("""Description is %s""" % pluginDict["plDesc"])
-
-    msContent = msDict["msURL"] + "content/"
-    iuID = "2"
-
-    # needs a unit from installable units and the pluginDict
-    node = buildMPnodeApiP()
-
-    print(etree.tostring(node,pretty_print=True,encoding='unicode'))
+    if args.main:
+        node = buildMPapiP()
+    if args.catalogs:
+        node = buildMPcatApiP()
+    if args.taxonomy:
+        node = buildMPtaxonomy(args.marketId,args.categoryId,instUnits)
+    if args.featured:
+        node = fdd
+    # if args.recent:
+    #     node = fdd
+    # if args.favorites:
+    #     node = fdd
+    # if args.popular:
+    #     node = fdd
+        
+    # output
+    print('Content type: text/xml\n')
+    son = etree.tostring(node,pretty_print=True,encoding='utf-8',xml_declaration=True)
+    outDecode = son.decode(encoding='utf-8')
+    print(outDecode)
 
 if __name__ == "__main__":
     main()
