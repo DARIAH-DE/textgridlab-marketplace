@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Time-stamp: <2014-07-20 22:07:27 (klaus)>
+# Time-stamp: <2014-07-30 11:47:30 (kthoden)>
 
 __author__="Klaus Thoden"
 __date__="2014-03-13"
@@ -65,6 +65,7 @@ Reference: http://wiki.eclipse.org/Marketplace/REST
         - [X] $baseURL/popular/top/api/p :: most popular by activity: http://textgridlab.org/marketplace/popular/top/api/p
 
 put info on installable Units also in config
+config should be kept in XML.
 """
 
 # imports
@@ -83,6 +84,7 @@ config.read("ms.conf")
 
 # we somehow need to know here as well which category (external, beta, stable) this is in
 # in the tuple first is ID, second the title, third the category. We should get this from Confluence
+# put this into config XML file
 instUnits = dict(
     {"linguistics" : ("7","Linguistic Tools","4"), 
      "ttle" : ("8","Text Text Linkeditor","2"), 
