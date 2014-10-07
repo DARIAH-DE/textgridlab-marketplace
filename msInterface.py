@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Time-stamp: <2014-07-30 11:47:30 (kthoden)>
+# Time-stamp: <2014-10-07 12:53:33 (kthoden)>
 
 __author__="Klaus Thoden"
 __date__="2014-03-13"
@@ -69,9 +69,8 @@ config should be kept in XML.
 """
 
 # imports
-from lxml import etree
-import configparser
 import argparse
+from lxml import etree
 from datetime import datetime
 
 # Atlassian namespaces
@@ -79,26 +78,19 @@ from datetime import datetime
 NS={'ri':'http://www.atlassian.com/schema/confluence/4/ri/', 
     'ac':'http://www.atlassian.com/schema/confluence/4/ac/' }
 
-config = configparser.ConfigParser()
-config.read("ms.conf")
+# parse the XML config
+config = etree.parse("msConf.xml")
 
 # we somehow need to know here as well which category (external, beta, stable) this is in
 # in the tuple first is ID, second the title, third the category. We should get this from Confluence
-# put this into config XML file
-instUnits = dict(
-    {"linguistics" : ("7","Linguistic Tools","4"), 
-     "ttle" : ("8","Text Text Linkeditor","2"), 
-     "collatex": ("4","CollateX","2"), 
-     "noteeditor" : ("2","MEISE Noteneditor","4"), 
-     "sadepublish" : ("1","SADE Publish Tool","2"), 
-     "digilib" : ("3","DigiLib","4"), 
-     "oxygen" : ("5","Oxygen XML Editor","6")
-     # missing?
-     # "glosses" : (), 
-     # "base-extras",
-})
+instUnits = {}
+for name, idno, longname, cat, confId in zip(config.xpath('//plugin/@name'),config.xpath('//plugin/id'),config.xpath('//plugin/longName'),config.xpath('//plugin/cat'),config.xpath('//plugin/confluenceID')):
+    instUnits.update({name:(idno.text,longname.text,cat.text,confId.text)})
 
-def getConfluencePluginData(state="offline"):
+####################
+# Confluence stuff #
+####################
+def getConfluencePluginData(plugId):
     """
     Use python's lxml to get the Plugin pages from Confluence.
     REST documentation on https://docs.atlassian.com/atlassian-confluence/REST/latest/
@@ -111,24 +103,17 @@ def getConfluencePluginData(state="offline"):
     import urllib.request, urllib.parse, urllib.error
     import sys
 
-    if state=="offline":
-        baseURL = "file:///home/klaus/tmp/FUCKYOU/Marketsplace/dev/"
-        # baseURL = "file:///Users/kthoden/TextGrid/Marketsplace/dev/"
-        ID = "27329537"
-    else:
-        baseURL = "https://dev2.dariah.eu/wiki/rest/prototype/1/content/"
-        ID = "27329537" # digilib, not yet accessible through script, as I am not logged in
-        # ID = "9012111"
+    # if state=="offline":
+    #     baseURL = "file:///Users/kthoden/TextGrid/Marketsplace/dev/"
+    #     plugId = "27329537"
+    # else:
+    baseURL = "https://dev2.dariah.eu/wiki/rest/prototype/1/content/"
+    # plugId = "34341688" # digilib
 
-    fullpath = baseURL + ID
+    fullpath = baseURL + plugId
 
     sys.stdout.write("Getting info from %s.\n"% fullpath)
     usock=urllib.request.urlopen(fullpath)
-    # try:
-    #     usock=urllib.request.urlopen(fullpath)
-    # except:
-    #     sys.stderr.write("not working, mate\n")
-    #     sys.exit()
 
     try:
         pluginInfo = etree.parse(usock)
@@ -204,16 +189,30 @@ def compileInfo(pluginData):
     return pluginDict
 # def compileInfo ends here
 
+#############################################
+# Here starts the building of the XML nodes #
+#############################################
+
 def buildMPapiP():
     """Construct of one answer. Requires only info from config file."""
-    conGen=config['General']
+#    conGen=configold['General']
+
+    msId = config.xpath('//general/id')[0].text
+    msName = config.xpath('//general/name')[0].text
+    msUrl = config.xpath('//general/url')[0].text
+
     mplace = etree.Element("marketplace")
-    market = etree.SubElement(mplace,"market", id=conGen['id'], name=conGen['name'], url=conGen["URL"]+"category/markets/"+conGen["id"])
+    market = etree.SubElement(mplace,"market", id=msId, name=msName, url=msUrl+"category/markets/"+msId)
 
     catCount=1
-    conCat = config["Categories"]
-    for key in conCat:
-        etree.SubElement(market,"category",count=str(catCount), id=key,name=conCat[key], url=str(conGen["URL"])+"taxonomy/term/"+conGen["id"]+","+key)
+    # conCat = config["Categories"]
+
+    cat = config.xpath('//category')
+    catId = config.xpath('//category/@id')
+
+    for catKey,catVal in zip(cat,catId):
+        # Yay zip!
+        etree.SubElement(market,"category",count=str(catCount), id=catVal,name=catKey.text, url=str(msUrl)+"taxonomy/term/"+msId+","+catKey.text)
         catCount += 1
     return mplace
 # def buildMPapiP ends here
@@ -223,12 +222,16 @@ def buildMPcatApiP():
     thing the Lab looks for. Requires only info from config file.
     After choosing that catalog, the root is called.
     """
-    conGen=config['General']
+    msId = config.xpath('//general/id')[0].text
+    msName = config.xpath('//general/name')[0].text
+    msUrl = config.xpath('//general/url')[0].text
+    msTitle = config.xpath('//general/title')[0].text
+    msIcon = config.xpath('//general/title')[0].text
 
     mplace = etree.Element("marketplace")
     mplace.append(etree.Comment("File generated on %s" % datetime.now().strftime("%Y-%m-%dT%H:%M:%S")))
     catalogs = etree.SubElement(mplace,"catalogs")
-    catalog = etree.SubElement(catalogs,"catalog", id=conGen["id"], title=conGen["title"], url=conGen["URL"], selfContained="0",icon=conGen["URL"]+conGen["icon"])
+    catalog = etree.SubElement(catalogs,"catalog", id=msId, title=msTitle, url=msUrl, selfContained="0",icon=msUrl+msIcon)
     desc = etree.SubElement(catalog,"description").text = "The features of TextGrid"
     depRep = etree.SubElement(catalog,"dependenciesRepository")
     wizard = etree.SubElement(catalog,"wizard", title="")
@@ -242,27 +245,41 @@ def buildMPcatApiP():
 def buildMPtaxonomy(marID,catID,instUnits):
     """
     """
+    msUrl = config.xpath('//general/url')[0].text
+
+    # small dictionary for handling the category name and id
+    catDict = {}
+    for catKey,catVal in zip(config.xpath('//category'),config.xpath('//category/@id')):
+        catDict.update({catVal:catKey.text})
 
     mplace = etree.Element("marketplace")
-    conCat = config["Categories"]
-    print(conCat[catID])
-    category = etree.SubElement(mplace,"category",id=catID,name=conCat[catID],url=config["General"]["URL"]+"taxonomy/term/"+marID+","+catID)
+
+    print("catalog dictionary", catDict["4"], type(catID))
+    category = etree.SubElement(mplace,"category",id=catID,name=catDict[catID],url=msUrl+"taxonomy/term/"+marID+","+catID)
+
     # wiederhole die zwei nächsten für alle, die in der entsprechenden Gruppe sind
     for iu in instUnits.items():
-        if iu[1][2] == catID:
-            node = etree.SubElement(category,"node",id=iu[1][0],name=iu[1][1],url=config["General"]["URL"]+"content/"+iu[1][0])
+        if int(iu[1][2]) == catID:
+            node = etree.SubElement(category,"node",id=iu[1][0],name=iu[1][1],url=msUrl+"content/"+iu[1][0])
             fav = etree.SubElement(category,"favorited").text = "0"
     return mplace
 # def buildMPtaxonomy ends here
 
 def buildMPnodeApiP(instUnits,plugName):
     """info on installable Unit"""
-    node = etree.Element("node",id=instUnits[plugName][0], name=instUnits[plugName][1], url=config["General"]["URL"]+instUnits[plugName][0])
-    bodyEle = etree.SubElement(node,"body").text = etree.CDATA([plug["plDesc"]])
+    msUrl = config.xpath('//general/url')[0].text
+    msId = config.xpath('//general/id')[0].text
+
+    # here we get the info about the plugin! returns a dictionary full of stuff
+    rawXML = getConfluencePluginData(instUnits[plugName][3])
+    plug = compileInfo(rawXML)
+
+    node = etree.Element("node",id=instUnits[plugName][0], name=instUnits[plugName][1], url=msUrl+instUnits[plugName][0])
+    bodyEle = etree.SubElement(node,"body").text = etree.CDATA(plug["plDesc"])
     # taken from Label of wikipage
     catEle = etree.SubElement(node,"categories")
     # noch nicht ganz fertig!
-    category = etree.SubElement(catEle,"categories",id=instUnits[plugName][2],name=instUnits[plugName][1],url=config["General"]["URL"]+"taxonomy/term/"+config["General"]["id"]+","+instUnits[plugName][2])
+    category = etree.SubElement(catEle,"categories",id=instUnits[plugName][2],name=instUnits[plugName][1],url=msUrl+"taxonomy/term/"+msId+","+instUnits[plugName][2])
     # how to do that?
     changeEle = etree.SubElement(node,"changed").text = "0"
     # constantly TextGrid?
@@ -283,7 +300,7 @@ def buildMPnodeApiP(instUnits,plugName):
     iuEle = etree.SubElement(iusEle,"iu").text = "info.textgrid.lab.%s.feature.feature.group" % plugName
     licenseEle = etree.SubElement(node,"license").text = "URL!"
     # who is the owner?
-    ownerEle = etree.SubElement(node,"owner").text = TextGrid
+    ownerEle = etree.SubElement(node,"owner").text = "TextGrid"
     # what is this about?
     resourceEle = etree.SubElement(node,"resource") # this?
     # see logo
@@ -303,20 +320,15 @@ def buildMPfeaturedApiP():
     featured = etree.SubElement(mplace,"featured",count=numFeat)
     # make the nodes here as a subElement of featured
     for i in featuredList:
-        
-        i = buildMPnodeApiP(config,instUnits,plugName,plDict)
+        i = buildMPnodeApiP(instUnits,plugName)
         i = etree.SubElement(featured)
 
     return mplace
 # def buildMPfeaturedApiP ends here
 
-def prepareConf():
-    # returns pluginInfo (XML Data)
-    sho = getConfluencePluginData
-    body = parseConfluenceBody(sho)
-    # returns a dictionary
-    return compileInfo(body)
-# def prepareConf ends here
+################
+# The main bit #
+################
 
 def main():
     parser = argparse.ArgumentParser()
@@ -355,15 +367,21 @@ def main():
         node = buildMPcatApiP()
     if args.taxonomy:
         node = buildMPtaxonomy(args.marketId,args.categoryId,instUnits)
+    if args.content:
+        node = "not yet implemented"
+    if args.node:
+        node = "not yet implemented"
+    if args.search:
+        node = "not yet implemented"
     if args.featured:
-        node = fdd
-    # if args.recent:
-    #     node = fdd
-    # if args.favorites:
-    #     node = fdd
-    # if args.popular:
-    #     node = fdd
-        
+        node = "not yet implemented"
+    if args.recent:
+        node = "not yet implemented"
+    if args.favorites:
+        node = "not yet implemented"
+    if args.popular:
+        node = "not yet implemented"
+
     # output
     print('Content type: text/xml\n')
     son = etree.tostring(node,pretty_print=True,encoding='utf-8',xml_declaration=True)

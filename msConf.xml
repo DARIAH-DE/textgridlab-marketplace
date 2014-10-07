@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- configuration file for TextGrid Marketplace software -->
+<msConf>
+  <general>
+    <title>TextGrid Marketsplace</title>
+    <url>http://ocropus.rz-berlin.mpg.de/~kthoden/marketplace/</url>
+    <id>tg01</id>
+    <name>textgridMS</name>
+    <icon>files/tg128.png</icon>
+    <p2UpdateSite>http://www.textgridlab.org/updates/beta</p2UpdateSite>
+  </general>
+<!--
+    schreibt Thorsten
+    p2-Update-Site enthält (in diesem Falle
+    http://www.textgridlab.org/updates/beta). Dazu kommen dann noch
+    die zugehörigen IDs der Installable Units, d.i. in der Regel
+    die ID des entsprechenden Features mit angehängtem
+    ».feature.group«.
+    info.textgrid.lab.noteeditor.feature.feature.group
+-->
+  <categories>
+    <category id="6">external</category>
+    <category id="5">beta</category>
+    <category id="4">stable</category>
+  </categories>
+
+  <plugins>
+    <!-- 
+         The listing of the plugins. Each one has a name, a unique,
+         ascending ID and should belong to a category of the ones
+         named above. confluenceID is the ID of the informing wikipage
+    -->
+    <plugin name="sadepublish">
+      <cat>4</cat>
+      <id>1</id>
+      <longName>SADE Publish Tool</longName>
+      <confluenceID>      </confluenceID>
+    </plugin>
+    <plugin name="noteeditor">
+      <cat>4</cat>
+      <id>2</id>
+      <longName>MEISE Noteneditor</longName>
+      <confluenceID>      </confluenceID>
+    </plugin>
+    <plugin name="digilib">
+      <cat>4</cat>
+      <id>3</id>
+      <longName>DigiLib</longName>
+      <confluenceID>34341688</confluenceID>
+    </plugin>
+    <plugin name="collatex">
+      <cat>4</cat>
+      <id>4</id>
+      <longName>CollateX</longName>
+      <confluenceID>      </confluenceID>
+    </plugin>
+    <plugin name="oxygen">
+      <cat>6</cat>
+      <id>5</id>
+      <longName>Oxygen XML Editor</longName>
+      <confluenceID>      </confluenceID>
+    </plugin>
+    <plugin name="linguistics">
+      <cat>4</cat>
+      <id>7</id>
+      <longName>Linguistic Tools</longName>
+      <confluenceID>      </confluenceID>
+    </plugin>
+    <plugin name="ttle">
+      <cat>4</cat>
+      <id>8</id>
+      <longName>Text Text Linkeditor</longName>
+      <confluenceID>      </confluenceID>
+    </plugin>
+  </plugins>
+</msConf>
