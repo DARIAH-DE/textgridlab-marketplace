@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# Time-stamp: <2014-10-07 12:53:33 (kthoden)>
+# -*- coding: utf-8; mode: python -*-
+# Time-stamp: <2014-10-08 14:37:38 (kthoden)>
 
 __author__="Klaus Thoden"
 __date__="2014-03-13"
@@ -72,6 +72,19 @@ config should be kept in XML.
 import argparse
 from lxml import etree
 from datetime import datetime
+import cgi
+
+# had some big problems with getting the encoding right
+# answer on https://stackoverflow.com/questions/9322410/set-encoding-in-python-3-cgi-scripts
+# finally did the trick
+import locale                                  # Ensures that subsequent open()s 
+locale.getpreferredencoding = lambda: 'UTF-8'  # are UTF-8 encoded.
+
+import sys                                     
+sys.stdin = open('/dev/stdin', 'r')       # Re-open standard files in UTF-8 
+sys.stdout = open('/dev/stdout', 'w')     # mode.
+sys.stderr = open('/dev/stderr', 'w') 
+
 
 # Atlassian namespaces
 # http://www.amnet.net.au/~ghannington/confluence/docs/confluence/g-ri_confluence.ri.html
@@ -112,13 +125,13 @@ def getConfluencePluginData(plugId):
 
     fullpath = baseURL + plugId
 
-    sys.stdout.write("Getting info from %s.\n"% fullpath)
+    # sys.stdout.write("Getting info from %s.\n"% fullpath)
     usock=urllib.request.urlopen(fullpath)
 
     try:
         pluginInfo = etree.parse(usock)
     except etree.XMLSyntaxError:
-        print("Online resource %s not found." % fullpath)
+        # print("Online resource %s not found." % fullpath)
         sys.exit()
     usock.close()
 
@@ -135,12 +148,6 @@ def reverseTags(text):
         '&gt;' : '>',
         '&quot;' : '"',
         '&apos;' : "'",
-        '&uuml;' : 'ü',
-        '&auml;' : 'ä',
-        '&ouml;' : 'ö',
-        '&nbsp;' : ' ',
-        '&ndash;' : '–',
-        '&larr;' : "←",
         'ac:' : '',
         'ri:' : ''
     }
@@ -148,13 +155,41 @@ def reverseTags(text):
     for thing in list(replacements.keys()):
         text = text.replace(thing, replacements[thing])
     text = re.sub(r'&(?=\s)','&amp;',text)
+    
     return text
 # def reverseTags ends here
+
+def unescape(text):
+    """with thanks to http://effbot.org/zone/re-sub.htm#unescape-html"""
+    import re,html.entities
+
+    def fixup(m):
+        text = m.group(0)
+        if text[:2] == "&#":
+            # character reference
+            try:
+                if text[:3] == "&#x":
+                    return chr(int(text[3:-1], 16))
+                else:
+                    return chr(int(text[2:-1]))
+            except ValueError:
+                pass
+        else:
+            # named entity
+            try:
+                text = chr(html.entities.name2codepoint[text[1:-1]])
+            except KeyError:
+                pass
+        return text # leave as is
+    return re.sub("&#?\w+;", fixup, text)
+# def unescape ends here
 
 def parseConfluenceBody(codedBody):
     """Body needs to be transformed a bit."""
     # some ugly modifications
     clean = reverseTags(codedBody)
+    clean = unescape(clean)
+
     bodyInfo = etree.fromstring(clean)
 
     return bodyInfo
@@ -163,16 +198,11 @@ def parseConfluenceBody(codedBody):
 def compileInfo(pluginData):
     """Return a dictionary of the things we parsed out of the webpage"""
     pluginTitle = pluginData.xpath('/content/title')[0].text
-    print("""Title of the page is %s""" % pluginTitle)
 
+    # these are the guts we need
     pluginBody = pluginData.xpath('/content/body')[0].text
-
-    # tonic = etree.XML(pluginBody,nsmap=NS)
-    # print(tonic)
-
     gingerAle = parseConfluenceBody(pluginBody)
-    # print(gingerAle.xpath('//h1')[0].text)
-    # print("""Title taken from the body: %s""" % plTitle)
+
     pluginDict = dict({
         "plTitle" : gingerAle.xpath('/table/tbody/tr[1]/td')[0].text,
         "plDesc" : gingerAle.xpath('/table/tbody/tr[2]/td')[0].text,
@@ -185,7 +215,6 @@ def compileInfo(pluginData):
         "plProjects" : gingerAle.xpath('/table/tbody/tr[8]/td')[0].text,
         "plFiles" : gingerAle.xpath('/table/tbody/tr[9]/td')[0].text
     })
-    # print("""Description is %s""" % pluginDict["plDesc"])
     return pluginDict
 # def compileInfo ends here
 
@@ -195,7 +224,6 @@ def compileInfo(pluginData):
 
 def buildMPapiP():
     """Construct of one answer. Requires only info from config file."""
-#    conGen=configold['General']
 
     msId = config.xpath('//general/id')[0].text
     msName = config.xpath('//general/name')[0].text
@@ -243,8 +271,7 @@ def buildMPcatApiP():
 # def buildMPcatApiP ends here
 
 def buildMPtaxonomy(marID,catID,instUnits):
-    """
-    """
+    """Construct the taxonomy. Lists all plugins of one category."""
     msUrl = config.xpath('//general/url')[0].text
 
     # small dictionary for handling the category name and id
@@ -254,19 +281,18 @@ def buildMPtaxonomy(marID,catID,instUnits):
 
     mplace = etree.Element("marketplace")
 
-    print("catalog dictionary", catDict["4"], type(catID))
-    category = etree.SubElement(mplace,"category",id=catID,name=catDict[catID],url=msUrl+"taxonomy/term/"+marID+","+catID)
-
+    # print("catalog dictionary", catDict["4"], type(catID))
+    category = etree.SubElement(mplace,"category",id=str(catID),name=(catDict[catID]),url=msUrl+"taxonomy/term/"+str(marID)+","+str(catID))
     # wiederhole die zwei nächsten für alle, die in der entsprechenden Gruppe sind
     for iu in instUnits.items():
-        if int(iu[1][2]) == catID:
+        if int(iu[1][2]) == int(catID):
             node = etree.SubElement(category,"node",id=iu[1][0],name=iu[1][1],url=msUrl+"content/"+iu[1][0])
             fav = etree.SubElement(category,"favorited").text = "0"
     return mplace
 # def buildMPtaxonomy ends here
 
 def buildMPnodeApiP(instUnits,plugName):
-    """info on installable Unit"""
+    """info on installable Unit. Totally un-finished"""
     msUrl = config.xpath('//general/url')[0].text
     msId = config.xpath('//general/id')[0].text
 
@@ -275,7 +301,10 @@ def buildMPnodeApiP(instUnits,plugName):
     plug = compileInfo(rawXML)
 
     node = etree.Element("node",id=instUnits[plugName][0], name=instUnits[plugName][1], url=msUrl+instUnits[plugName][0])
-    bodyEle = etree.SubElement(node,"body").text = etree.CDATA(plug["plDesc"])
+
+    plDescUU = plug["plDesc"]
+    bodyEle = etree.SubElement(node,"body").text = etree.CDATA(plDescUU)
+    # bodyEle = etree.SubElement(node,"body").text = etree.CDATA(plug["plDesc"])
     # taken from Label of wikipage
     catEle = etree.SubElement(node,"categories")
     # noch nicht ganz fertig!
@@ -311,17 +340,22 @@ def buildMPnodeApiP(instUnits,plugName):
     return node
 # def buildMPnodeApiP ends here
 
-def buildMPfeaturedApiP():
+def buildMPfeaturedApiP(listType):
     """this takes those nodes (my theory here) that have a value of
     non-nil in 'featured' (should be on the wiki page) and wraps them
     into some XML
+    might also work for recent, favorite and popular, they are similar
     """
+    # the number of items, I think, not a fixed value
+
+    featuredList = ["digilib"]
+
     mplace = etree.Element("marketplace")
-    featured = etree.SubElement(mplace,"featured",count=numFeat)
-    # make the nodes here as a subElement of featured
+    plugList = etree.SubElement(mplace,listType,count=str(len(featuredList)))
+    # make the nodes here as a subElement of the list
     for i in featuredList:
-        i = buildMPnodeApiP(instUnits,plugName)
-        i = etree.SubElement(featured)
+        xxx = buildMPnodeApiP(instUnits,i)
+        mplace.insert(1,xxx)
 
     return mplace
 # def buildMPfeaturedApiP ends here
@@ -333,19 +367,11 @@ def buildMPfeaturedApiP():
 def main():
     parser = argparse.ArgumentParser()
     msActions = parser.add_mutually_exclusive_group()
-    msActions.add_argument("-m","--main",help="listing of markets and categories",action="store_true")
-    msActions.add_argument("-c","--catalogs",help="obtain all available catalogs",action="store_true")
-    msActions.add_argument("-t","--taxonomy",help="listing of specific market or category",action="store_true")
-    msActions.add_argument("-co","--content",help="return a specific listing",action="store_true")
-    msActions.add_argument("-n","--node",help="return a specific listing",action="store_true")
-    msActions.add_argument("-s","--search",help="return search results",action="store_true")
-    msActions.add_argument("-f","--featured",help="list of Featured listings",action="store_true")
-    msActions.add_argument("-r","--recent",help="recently updated or added listings",action="store_true")
-    msActions.add_argument("-fa","--favorites",help="most favourite things",action="store_true")
-    msActions.add_argument("-p","--popular",help="most popular by activity",action="store_true")
+    msActions.add_argument("-a","--action",help="call the function",action="store_true")
 
-    parser.add_argument("-cId","--categoryId",help="ID of category")
-    parser.add_argument("-mId","--marketId",help="ID of market")
+    parser.add_argument("-ty","--type",help="type of list to be generated")
+    parser.add_argument("-cid","--categoryId",help="ID of category")
+    parser.add_argument("-mid","--marketId",help="ID of market")
     parser.add_argument("-ti","--title",help="title of a plugin?")
     parser.add_argument("-no","--nodeTitle",help="title of a node?")
     parser.add_argument("-q","--query",help="query string")
@@ -361,31 +387,31 @@ def main():
 
     args=parser.parse_args()
 
-    if args.main:
+    form = cgi.FieldStorage()
+    if form.getvalue('action') == 'main':
         node = buildMPapiP()
-    if args.catalogs:
+    if form.getvalue('action') == 'catalogs':
         node = buildMPcatApiP()
-    if args.taxonomy:
-        node = buildMPtaxonomy(args.marketId,args.categoryId,instUnits)
-    if args.content:
+    if form.getvalue('action') == 'taxonomy':
+        node = buildMPtaxonomy(form.getvalue('marketId'),form.getvalue('categoryId'),instUnits)
+    # list covers all of recent, favorites, popular and featured
+    if form.getvalue('action') == 'list':
+        node = buildMPfeaturedApiP(form.getvalue('type'))
+
+    if form.getvalue('action') == 'content':
         node = "not yet implemented"
-    if args.node:
+    if form.getvalue('action') == 'node':
         node = "not yet implemented"
-    if args.search:
-        node = "not yet implemented"
-    if args.featured:
-        node = "not yet implemented"
-    if args.recent:
-        node = "not yet implemented"
-    if args.favorites:
-        node = "not yet implemented"
-    if args.popular:
+    if form.getvalue('action') == 'search':
         node = "not yet implemented"
 
     # output
-    print('Content type: text/xml\n')
+    print('Content type: text/xml; charset=utf-8\n')
+    # this is of a bytes type
     son = etree.tostring(node,pretty_print=True,encoding='utf-8',xml_declaration=True)
-    outDecode = son.decode(encoding='utf-8')
+    # convert this to a string
+    outDecode = son.decode('utf-8')
+    # for debugging
     print(outDecode)
 
 if __name__ == "__main__":
