@@ -1,0 +1,12 @@
+Options +FollowSymLinks
+RewriteEngine On
+RewriteRule ^api/p$ http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-bin/msInterface.cgi?action=main
+RewriteRule ^catalogs/api/p$ http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-bin/msInterface.cgi?action=catalogs
+RewriteRule ^taxonomy/term/(.*?),(.*?)/api/p http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-bin/msInterface.cgi?action=taxonomy&marketId=$1&categoryId=$2
+RewriteRule ^featured/api/p$ http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-bin/msInterface.cgi?action=list&type=featured
+RewriteRule ^recent/api/p$ http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-bin/msInterface.cgi?action=list&type=recent
+RewriteRule ^favorites/top/api/p$ http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-bin/msInterface.cgi?action=list&type=favorites
+RewriteRule ^popular/top/api/p$ http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-bin/msInterface.cgi?action=list&type=popular
+RewriteRule ^content/(.?)/api/p$ http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-bin/msInterface.cgi?action=content&nodeId=$1
+RewriteRule ^content/(.?)$ http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-bin/msInterface.cgi?action=redirect&nodeId=$1
+

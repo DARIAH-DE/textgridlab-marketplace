@@ -3,7 +3,7 @@
 <msConf>
   <general>
     <title>TextGrid Marketsplace</title>
-    <url>http://ocropus.rz-berlin.mpg.de/~kthoden/marketplace/</url>
+    <url>http://ocropus.rz-berlin.mpg.de/~kthoden/m/</url>
     <id>tg01</id>
     <name>textgridMS</name>
     <icon>files/tg128.png</icon>
@@ -19,8 +19,10 @@
     info.textgrid.lab.noteeditor.feature.feature.group
 -->
   <categories>
-    <category id="6">external</category>
-    <category id="5">beta</category>
+    <!-- 
+      <category id="6">external</category>
+      <category id="5">beta</category>
+      -->
     <category id="4">stable</category>
   </categories>
 
@@ -34,13 +36,13 @@
       <cat>4</cat>
       <id>1</id>
       <longName>SADE Publish Tool</longName>
-      <confluenceID>      </confluenceID>
+      <confluenceID>34341688</confluenceID> <!--change Me!!-->
     </plugin>
     <plugin name="noteeditor">
       <cat>4</cat>
       <id>2</id>
       <longName>MEISE Noteneditor</longName>
-      <confluenceID>      </confluenceID>
+      <confluenceID>34341688</confluenceID> <!--change Me!!-->
     </plugin>
     <plugin name="digilib">
       <cat>4</cat>
@@ -52,25 +54,25 @@
       <cat>4</cat>
       <id>4</id>
       <longName>CollateX</longName>
-      <confluenceID>      </confluenceID>
+      <confluenceID>34341688</confluenceID> <!--change Me!!-->
     </plugin>
     <plugin name="oxygen">
       <cat>6</cat>
       <id>5</id>
       <longName>Oxygen XML Editor</longName>
-      <confluenceID>      </confluenceID>
+      <confluenceID>34341688</confluenceID> <!--change Me!!-->
     </plugin>
     <plugin name="linguistics">
       <cat>4</cat>
       <id>7</id>
       <longName>Linguistic Tools</longName>
-      <confluenceID>      </confluenceID>
+      <confluenceID>34341688</confluenceID> <!--change Me!!-->
     </plugin>
     <plugin name="ttle">
       <cat>4</cat>
       <id>8</id>
       <longName>Text Text Linkeditor</longName>
-      <confluenceID>      </confluenceID>
+      <confluenceID>34341688</confluenceID> <!--change Me!!-->
     </plugin>
   </plugins>
 </msConf>

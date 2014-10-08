@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8; mode: python -*-
-# Time-stamp: <2014-10-08 18:10:26 (kthoden)>
+# Time-stamp: <2014-10-08 18:23:47 (kthoden)>
 
 __author__="Klaus Thoden"
 __date__="2014-03-13"
@@ -331,7 +331,7 @@ def buildMPnodeApiP(instUnits,plugName):
 def buildMPfrfpApiP(listType):
     """Take those nodes (my theory here) that have a value of
     non-nil in 'featured' (should be on the wiki page) and wraps them
-    into some XML
+    into some XML.
     Works also for recent, favorite and popular, they are similar.
     """
     # this list needs to be somewhat dynamic
