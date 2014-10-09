@@ -1,64 +1,37 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8; mode: python -*-
-# Time-stamp: <2014-10-08 18:23:47 (kthoden)>
+# Time-stamp: <2014-10-09 15:24:44 (kthoden)>
 
 __author__="Klaus Thoden"
-__date__="2014-03-13"
-__doc__ = """Getting a page out of the Confluence system and convert it to
-something the Eclipse Marketplace understands.
+__date__="2014-10-09"
+__doc__ = """
+A tiny CGI webservice to provide marketplace functionality for
+TextGridLab/Eclipse.
+
+Provides the necessary XML files for showing content in the
+Marketplace Menu. Content itself comes from two sources: an XML
+configuration file next to this script and another system which gives
+information about the plugin to the users and to this webservice.
+
+In this specific case, this is the Atlassian Confluence Wiki system
+which also provides their content via REST API:
 https://dev2.dariah.eu/wiki/rest/prototype/1/content/27329537
 
-For the pages to be served by the service then, we need several inputs:
-- the data parsed out of the corresponding wiki pages
-- a config file
-- some other stuff?
+A fourth component is a .htaccess file which deals with the rewriting
+of URLs to cater for all the needs. Using htaccess means of course
+that we need an Apache webserver.
 
-The Lab sends a request. In my theory, it will first end in $MS/api/p where it gets information about:
-- msID
-- msName
-- the categories with id and name and a generated url pointing to the taxonomies
+The system also expects a directory called "files" on the server which
+contains an image file to be used as a logo.
 
-we can browse that url. taxonomy knows about
-- who is in that group
-- their internal id
-- human readable name
-- link to that node
-
-that link (content) knows everything and more.
-
-what about the catalogs?
-This simply has to be there, I think
-
-Things to put on the server
-- directory with image files
+To try out the functionality, the ini file of the Lab has to be tweaked:
+-Dorg.eclipse.epp.internal.mpc.core.service.DefaultCatalogService.url=http://ocropus.rz-berlin.mpg.de/~kthoden/m/
+Or point the URL to your own private instance.
 
 Query by Eclipse looks like this:
-http://ocropus.rz-berlin.mpg.de/~kthoden/marketplace/featured/6/api/p?product=info.textgrid.lab.core.application.base_product&os=macosx&runtime.version=3.7.0.v20110110&client=org.eclipse.epp.mpc.core&java.version=1.6.0_65&product.version=0.0.2.201310011243&ws=cocoa&nl=de_DE
+http://ocropus.rz-berlin.mpg.de/~kthoden/m/featured/6/api/p?product=info.textgrid.lab.core.application.base_product&os=macosx&runtime.version=3.7.0.v20110110&client=org.eclipse.epp.mpc.core&java.version=1.6.0_65&product.version=0.0.2.201310011243&ws=cocoa&nl=de_DE
 
-We should maybe catch and retain all those arguments:
-product=info.textgrid.lab.core.application.base_product
-os=macosx
-runtime.version=3.7.0.v20110110
-client=org.eclipse.epp.mpc.core
-java.version=1.6.0_65
-product.version=0.0.2.201310011243
-ws=cocoa
-nl=de_DE
-
-Reference: http://wiki.eclipse.org/Marketplace/REST
-
-        - [X] $baseURL/api/p :: listing of markets and categories: http://textgridlab.org/marketplace/api/p
-        - [ ] $baseURL/catalogs/api/p :: obtain all available catalogs: http://textgridlab.org/marketplace/catalogs/api/p
-        - [ ] $baseURL/taxonomy/term/[category id],[market id]/api/p :: listing
-             of a specific market and category: http://textgridlab.org/marketplace/taxonomy/term/8a207eea3542f8b9013542f8f0d40001,6/api/p
-        - [ ] $baseURL/content/[title]/api/p :: return a specific listing: http://textgridlab.org/marketplace/
-        - [ ] $baseURL/node/[node id]/api/p :: return a specific listing: http://textgridlab.org/marketplace/
-        - [ ] $baseURL/api/p/search/apachesolr_search/[query]?page=[page num]&filters=[filters] :: Return
-             search results: http://textgridlab.org/marketplace/
-        - [X] $baseURL/featured/api/p :: List of Featured listings: http://textgridlab.org/marketplace/featured/api/p
-        - [X] $baseURL/recent/api/p :: Recently updated or added listings: http://textgridlab.org/marketplace/recent/api/p
-        - [X] $baseURL/favorites/top/api/p :: most favourite things: http://textgridlab.org/marketplace/favorites/top/api/p
-        - [X] $baseURL/popular/top/api/p :: most popular by activity: http://textgridlab.org/marketplace/popular/top/api/p
+The reference of the Eclipse interface is at http://wiki.eclipse.org/Marketplace/REST
 """
 
 ###########
@@ -66,13 +39,11 @@ Reference: http://wiki.eclipse.org/Marketplace/REST
 ###########
 import argparse
 from lxml import etree
-from datetime import datetime
 import cgi
 
 # had some big problems with getting the encoding right
 # answer on https://stackoverflow.com/questions/9322410/set-encoding-in-python-3-cgi-scripts
 # finally did the trick:
-
 # Ensures that subsequent open()s are UTF-8 encoded.
 import locale
 locale.getpreferredencoding = lambda: 'UTF-8'
@@ -97,28 +68,15 @@ instUnits = {}
 for name, idno, longname, cat, confId in zip(config.xpath('//plugin/@name'),config.xpath('//plugin/id'),config.xpath('//plugin/longName'),config.xpath('//plugin/cat'),config.xpath('//plugin/confluenceID')):
     instUnits.update({name:(idno.text,longname.text,cat.text,confId.text)})
 
-####################
-# Confluence stuff #
-####################
-def getConfluencePluginData(plugId):
-    """Get info about the plugins from the Confluence pages. The plugId
-    is found in the config file."""
-    import urllib.request, urllib.parse, urllib.error
-    import sys
-
-    baseURL = "https://dev2.dariah.eu/wiki/rest/prototype/1/content/"
-    fullpath = baseURL + plugId
-
-    usock=urllib.request.urlopen(fullpath)
-
-    try:
-        pluginInfo = etree.parse(usock)
-    except etree.XMLSyntaxError:
-        sys.exit()
-    usock.close()
-
-    return pluginInfo
-## def getConfluencePluginData ends here
+#################
+# Small helpers #
+#################
+def findKey(dic,val):
+        """A dictionary should be searchable both ways. Thanks to the
+        internet for that solution
+        """
+        return [k for k, v in list(dic.items()) if v == val][0]
+# def findKey ends here
 
 def reverseTags(text):
     """Deals with the escaped html markup in the page that is returned
@@ -168,6 +126,29 @@ def unescape(text):
         return text # leave as is
     return re.sub("&#?\w+;", fixup, text)
 # def unescape ends here
+
+####################
+# Confluence stuff #
+####################
+def getConfluencePluginData(plugId):
+    """Get info about the plugins from the Confluence pages. The plugId
+    is found in the config file."""
+    import urllib.request, urllib.parse, urllib.error
+    import sys
+
+    baseURL = "https://dev2.dariah.eu/wiki/rest/prototype/1/content/"
+    fullpath = baseURL + plugId
+
+    usock=urllib.request.urlopen(fullpath)
+
+    try:
+        pluginInfo = etree.parse(usock)
+    except etree.XMLSyntaxError:
+        sys.exit()
+    usock.close()
+
+    return pluginInfo
+## def getConfluencePluginData ends here
 
 def parseConfluenceBody(codedBody):
     """Parse the page returned by getConfluencePluginData, fix the code
@@ -245,16 +226,15 @@ def buildMPcatApiP():
 
     # build the XML
     mplace = etree.Element("marketplace")
-    mplace.append(etree.Comment("File generated on %s" % datetime.now().strftime("%Y-%m-%dT%H:%M:%S")))
     catalogs = etree.SubElement(mplace,"catalogs")
-    catalog = etree.SubElement(catalogs,"catalog", id=msId, title=msTitle, url=msUrl, selfContained="0",icon=msUrl+msIcon)
+    catalog = etree.SubElement(catalogs,"catalog", id=msId, title=msTitle, url=msUrl, selfContained="1",icon=msUrl+msIcon)
     desc = etree.SubElement(catalog,"description").text = "The features of TextGrid"
     depRep = etree.SubElement(catalog,"dependenciesRepository")
     wizard = etree.SubElement(catalog,"wizard", title="")
     icon = etree.SubElement(wizard,"icon")
-    sTab = etree.SubElement(wizard,"searchtab",enabled="1").text = "Search"
+    sTab = etree.SubElement(wizard,"searchtab",enabled="0").text = "Search"
     popTab = etree.SubElement(wizard,"populartab",enabled="1").text = "Popular"
-    recTab = etree.SubElement(wizard,"recenttab",enabled="1").text = "Recent"
+    recTab = etree.SubElement(wizard,"recenttab",enabled="0").text = "Recent"
     return mplace
 # def buildMPcatApiP ends here
 
@@ -268,6 +248,10 @@ def buildMPtaxonomy(marID,catID,instUnits):
     catDict = {}
     for catKey,catVal in zip(config.xpath('//category'),config.xpath('//category/@id')):
         catDict.update({catVal:catKey.text})
+
+    # a small detour, because we might get the name value of the category instead of the ID
+    if catID in [v for k, v in list(catDict.items())]:
+        catID = findKey(catDict,catID)
 
     # build the XML
     mplace = etree.Element("marketplace")
@@ -314,8 +298,9 @@ def buildMPnodeApiP(instUnits,plugName):
     # just a container
     iusEle = etree.SubElement(node,"ius")
     # where to store that information?
-    iuEle = etree.SubElement(iusEle,"iu").text = "info.textgrid.lab.%s.feature.feature.group" % plugName
-    licenseEle = etree.SubElement(node,"license").text = "URL!"
+    # iuEle = etree.SubElement(iusEle,"iu").text = "info.textgrid.lab.%s.feature.feature.group" % plugName
+    iuEle = etree.SubElement(iusEle,"iu").text = "de.mpg.mpiwg.itgroup.textgrid.%s.feature.feature.group" % plugName
+    licenseEle = etree.SubElement(node,"license").text = plug["plLicense"]
     # who is the owner?
     ownerEle = etree.SubElement(node,"owner").text = "TextGrid"
     # what is this about?
@@ -328,11 +313,11 @@ def buildMPnodeApiP(instUnits,plugName):
     return node
 # def buildMPnodeApiP ends here
 
-def buildMPfrfpApiP(listType):
-    """Take those nodes (my theory here) that have a value of
-    non-nil in 'featured' (should be on the wiki page) and wraps them
-    into some XML.
-    Works also for recent, favorite and popular, they are similar.
+def buildMPfrfpApiP(listType,mId=config.xpath('//general/id')[0].text):
+    """Take those nodes (my theory here) that have a value of non-nil in
+    'featured' (should be on the wiki page) and wraps them into some
+    XML. Works also for recent, favorite and popular, they are
+    similar. Hence the name of this function.
     """
     # this list needs to be somewhat dynamic
     featuredList = ["digilib"]
@@ -342,7 +327,7 @@ def buildMPfrfpApiP(listType):
     # make the nodes here as a subElement of the list
     for i in featuredList:
         xxx = buildMPnodeApiP(instUnits,i)
-        mplace.insert(1,xxx)
+        plugList.insert(1,xxx)
 
     return mplace
 # def buildMPfrfpApiP ends here
@@ -359,8 +344,8 @@ def buildMPcontentApiP(nodeId,instUnits):
     mplace.insert(1,xxx)
 
     return mplace
-
 # def buildMPcontentApiP ends here
+
 
 ##########
 # Output #
@@ -406,7 +391,17 @@ def main():
     parser.add_argument("-ti","--title",help="title of a plugin?")
     parser.add_argument("-no","--nodeTitle",help="title of a node?")
     parser.add_argument("-q","--query",help="query string")
-    # things the client tells us:
+
+    # We should maybe catch and retain all those things the client tells us:
+    # product=info.textgrid.lab.core.application.base_product
+    # os=macosx
+    # runtime.version=3.7.0.v20110110
+    # client=org.eclipse.epp.mpc.core
+    # java.version=1.6.0_65
+    # product.version=0.0.2.201310011243
+    # ws=cocoa
+    # nl=de_DE
+
     parser.add_argument("--product")
     parser.add_argument("--os")
     parser.add_argument("--runtime.version")
@@ -417,6 +412,7 @@ def main():
     parser.add_argument("--nl",help="Language")
 
     args=parser.parse_args()
+
     # arguments need to be read into something that the CGI can deal with
     form = cgi.FieldStorage()
     if form.getvalue('action') == 'main':
@@ -430,7 +426,10 @@ def main():
         outputXML(node)
     # list covers all of recent, favorites, popular and featured
     if form.getvalue('action') == 'list':
-        node = buildMPfrfpApiP(form.getvalue('type'))
+        if form.getvalue('marketId') != None:
+            node = buildMPfrfpApiP(form.getvalue('type'),form.getvalue('marketId'))
+        else:
+            node = buildMPfrfpApiP(form.getvalue('type'))
         outputXML(node)
     if form.getvalue('action') == 'content':
         node = buildMPcontentApiP(form.getvalue('nodeId'),instUnits)
@@ -438,9 +437,12 @@ def main():
     if form.getvalue('action') == 'redirect':
         goToConfluence(form.getvalue('nodeId'),instUnits)
 
-    # really bad error handling
-    if form.getvalue('action') == 'node':
-        node = "not yet implemented"
+    # I think, node can be redirected to content. Did so in htaccess file.
+    # if form.getvalue('action') == 'node':
+    #     node = "not yet implemented"
+
+    # really bad error handling, but search functionality has been disabled:
+    # sTab = etree.SubElement(wizard,"searchtab",enabled="0").text = "Search"
     if form.getvalue('action') == 'search':
         node = "not yet implemented"
 

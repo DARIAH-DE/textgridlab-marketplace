@@ -19,11 +19,9 @@
     info.textgrid.lab.noteeditor.feature.feature.group
 -->
   <categories>
-    <!-- 
-      <category id="6">external</category>
-      <category id="5">beta</category>
-      -->
     <category id="4">stable</category>
+    <category id="5">beta</category>
+    <category id="6">external</category>
   </categories>
 
   <plugins>
