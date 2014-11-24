@@ -3,6 +3,7 @@
 <msConf>
   <general>
     <title>TextGrid Marketsplace</title>
+    <description>TextGrid Plugins!</description>
     <url>http://ocropus.rz-berlin.mpg.de/~kthoden/m/</url>
     <id>tg01</id>
     <name>textgridMS</name>

@@ -330,7 +330,7 @@ def build_mp_frfp_apip(list_type, mark_id=CONFIG.xpath('//general/id')[0].text):
     similar. Hence the name of this function.
     """
     # this list needs to be somewhat dynamic
-    featured_list = ["oxygen","noteeditor", "digilib", "collatex", "sadepublish"]
+    featured_list = ["oxygen","noteeditor","digilib","collatex","sadepublish","ttle"]
     mplace = etree.Element("marketplace")
     plugin_list = etree.SubElement(mplace, list_type, count=str(len(featured_list)))
     # make the nodes here as a subElement of the list
