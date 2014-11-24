@@ -31,8 +31,10 @@ The reference of the Eclipse interface is at http://wiki.eclipse.org/Marketplace
 
 """
 
+# what is the license??
+
 __author__ = "Klaus Thoden"
-__date__ = "2014-10-09"
+__date__ = "2014-11-24"
 
 ###########
 # Imports #
@@ -44,6 +46,7 @@ import cgi
 # answer on https://stackoverflow.com/questions/9322410/set-encoding-in-python-3-cgi-scripts
 # finally did the trick:
 # Ensures that subsequent open()s are UTF-8 encoded.
+# Mind you, this is dependant on the server it is running on!
 import locale
 locale.getpreferredencoding = lambda: 'UTF-8'
 import sys
@@ -64,8 +67,8 @@ CONFIG = etree.parse("msConf.xml")
 # stable) this is in in the tuple first is ID, second the title, third
 # the category. We should get this from Confluence
 INST_UNITS = {}
-for name, idno, longname, cat, conf_id in zip(CONFIG.xpath('//plugin/@name'), CONFIG.xpath('//plugin/id'), CONFIG.xpath('//plugin/longName'), CONFIG.xpath('//plugin/cat'), CONFIG.xpath('//plugin/confluenceID')):
-    INST_UNITS.update({name:(idno.text, longname.text, cat.text, conf_id.text)})
+for name, idno, longname, cat, conf_id, inst_unit in zip(CONFIG.xpath('//plugin/@name'), CONFIG.xpath('//plugin/id'), CONFIG.xpath('//plugin/longName'), CONFIG.xpath('//plugin/cat'), CONFIG.xpath('//plugin/pageID'), CONFIG.xpath('//plugin/installableUnit')):
+    INST_UNITS.update({name:(idno.text, longname.text, cat.text, conf_id.text, inst_unit.text)})
 
 #################
 # Small helpers #
@@ -161,7 +164,10 @@ def parse_confluence_body(coded_body):
 ## def parse_confluence_body ends here
 
 def compile_info(plugin_data):
-    """Return a dictionary of the things parsed out of the webpage"""
+    """Return a dictionary of the things parsed out of the webpage. The
+    table we are parsing needs to be in a strict order concerning the
+    first four elements: title, description, logo, license
+    """
 
     # these are the guts we need
     plugin_body = plugin_data.xpath('/content/body')[0].text
@@ -171,13 +177,8 @@ def compile_info(plugin_data):
         "pl_title" : plugin_table.xpath('/table/tbody/tr[1]/td')[0].text,
         "pl_desc" : plugin_table.xpath('/table/tbody/tr[2]/td')[0].text,
         "pl_icon" : plugin_table.xpath('/table/tbody/tr[3]/td/image/attachment/@filename')[0],
-        "pl_maturity" : plugin_table.xpath('/table/tbody/tr[4]/td/structured-macro/parameter[@name="colour"]')[0].text,
-        "pl_req" : plugin_table.xpath('/table/tbody/tr[5]/td')[0].text,
-        # OBS, license needs not be a link
-        "pl_license" : plugin_table.xpath('/table/tbody/tr[6]/td/a')[0].text,
-        "pl_source" : plugin_table.xpath('/table/tbody/tr[7]/td/a')[0].text,
-        "pl_projects" : plugin_table.xpath('/table/tbody/tr[8]/td')[0].text,
-        "pl_files" : plugin_table.xpath('/table/tbody/tr[9]/td')[0].text
+        # license needs not be a link
+        "pl_license" : plugin_table.xpath('/table/tbody/tr[4]/td/a')[0].text
     })
     return plugin_dict
 # def compile_info ends here
@@ -218,12 +219,13 @@ def build_mp_cat_apip():
     ms_url = CONFIG.xpath('//general/url')[0].text
     ms_title = CONFIG.xpath('//general/title')[0].text
     ms_icon = CONFIG.xpath('//general/icon')[0].text
+    ms_desc = CONFIG.xpath('//general/description')[0].text
 
     # build the XML
     mplace = etree.Element("marketplace")
     catalogs = etree.SubElement(mplace, "catalogs")
     catalog = etree.SubElement(catalogs, "catalog", id=ms_id, title=ms_title, url=ms_url, selfContained="1", icon=ms_url+ms_icon)
-    desc = etree.SubElement(catalog, "description").text = "The features of TextGrid"
+    desc = etree.SubElement(catalog, "description").text = ms_desc
     dep_rep = etree.SubElement(catalog, "dependenciesRepository")
     wizard = etree.SubElement(catalog, "wizard", title="")
     icon = etree.SubElement(wizard, "icon")
@@ -260,7 +262,7 @@ def build_mp_taxonomy(market_id, cate_id):
 # def build_mp_taxonomy ends here
 
 def build_mp_node_apip(plug_name):
-    """Return info on installable Unit (i.e. plugin). Totally un-finished"""
+    """Return info on installable Unit (i.e. plugin)."""
     ms_url = CONFIG.xpath('//general/url')[0].text
     ms_id = CONFIG.xpath('//general/id')[0].text
 
@@ -275,11 +277,15 @@ def build_mp_node_apip(plug_name):
     # taken from Label of wikipage
     cate_element = etree.SubElement(node, "categories")
     # noch nicht ganz fertig!
-    category = etree.SubElement(cate_element, "categories", id=INST_UNITS[plug_name][2], name=INST_UNITS[plug_name][1], url=ms_url+"taxonomy/term/"+ms_id+", "+INST_UNITS[plug_name][2])
+    category = etree.SubElement(cate_element, "categories", id=INST_UNITS[plug_name][2], name=INST_UNITS[plug_name][1], url=ms_url+"taxonomy/term/"+ms_id+","+INST_UNITS[plug_name][2])
     # how to do that?
     change_element = etree.SubElement(node, "changed").text = "0"
-    # constantly TextGrid?
-    company_element = etree.SubElement(node, "companyname").text = etree.CDATA("TextGrid")
+    # constantly TextGrid? can be superseded by plugin-specific entry
+    tmp = '//plugin[@name="%s"]/company' % plug_name
+    if len(CONFIG.xpath(tmp)) != 0:
+        company_element = etree.SubElement(node, "companyname").text = etree.CDATA(CONFIG.xpath(tmp)[0].text)
+    else:
+        company_element = etree.SubElement(node, "companyname").text = etree.CDATA(CONFIG.xpath('//general/company')[0].text)
     # upload of plugin?, use old values here?
     created_element = etree.SubElement(node, "created").text = "0"
     # what here?
@@ -288,21 +294,31 @@ def build_mp_node_apip(plug_name):
     fav_element = etree.SubElement(node, "favorited").text = "0"
     # 1 is original value here
     foundation_element = etree.SubElement(node, "foundationmember").text = "1"
-    url_element = etree.SubElement(node, "homepageurl").text = etree.CDATA("http://www.textgrid.de")
+    url_element = etree.SubElement(node, "homepageurl").text = etree.CDATA(CONFIG.xpath('//general/companyUrl')[0].text)
+    # icon of plugin
     image_element = etree.SubElement(node, "image").text = etree.CDATA("https://dev2.dariah.eu/wiki/download/attachments/" + plugin_id + "/" + plug["pl_icon"])
     # just a container
     ius_element = etree.SubElement(node, "ius")
-    # where to store that information?
-    iu_element = etree.SubElement(ius_element, "iu").text = "de.mpg.mpiwg.itgroup.textgrid.%s.feature.feature.group" % plug_name
+    iu_element = etree.SubElement(ius_element, "iu").text = INST_UNITS[plug_name][4]
     license_element = etree.SubElement(node, "license").text = plug["pl_license"]
-    # who is the owner?
-    owner_element = etree.SubElement(node, "owner").text = "TextGrid"
+    # who is the owner? same as company!
+    tmp = '//plugin[@name="%s"]/owner' % plug_name
+    if len(CONFIG.xpath(tmp)) != 0:
+        owner_element = etree.SubElement(node, "owner").text = etree.CDATA(CONFIG.xpath(tmp)[0].text)
+    else:
+        owner_element = etree.SubElement(node, "owner").text = etree.CDATA(CONFIG.xpath('//general/company')[0].text)
     # what is this about?
     resource_element = etree.SubElement(node, "resource") # this?
     # see logo
+    # screenshot would be displayed if we click on more info in marketplace
+    scrshotEle = etree.SubElement(node,"screenshot").text = "https://i.imgur.com/z8hViF9.jpg"
     #scrshotEle = etree.SubElement(node,"screenshot").text = "https://develop.sub.uni-goettingen.de/repos/textgrid/trunk/lab/noteeditor/info.textgrid.lab.noteeditor.feature/Screenshot_MEISE_2012-04-20.png"
     # also hidden field?
-    update_element = etree.SubElement(node, "updateurl").text = etree.CDATA("http://download.digital-humanities.de/updates/textgridlab/" + plug_name)
+    tmp = '//plugin[@name="%s"]/updateUrl' % plug_name
+    if len(CONFIG.xpath(tmp)) != 0:
+        update_element = etree.SubElement(node, "updateurl").text = etree.CDATA(CONFIG.xpath(tmp)[0].text)
+    else:
+        update_element = etree.SubElement(node, "updateurl").text = etree.CDATA(CONFIG.xpath('//general/updateUrl')[0].text + plug_name)
 
     return node
 # def build_mp_node_apip ends here
@@ -314,8 +330,7 @@ def build_mp_frfp_apip(list_type, mark_id=CONFIG.xpath('//general/id')[0].text):
     similar. Hence the name of this function.
     """
     # this list needs to be somewhat dynamic
-    featured_list = ["digilib"]
-
+    featured_list = ["oxygen","noteeditor", "digilib", "collatex", "sadepublish"]
     mplace = etree.Element("marketplace")
     plugin_list = etree.SubElement(mplace, list_type, count=str(len(featured_list)))
     # make the nodes here as a subElement of the list
@@ -373,7 +388,7 @@ def output_xml(node):
 # The main bit #
 ################
 def main():
-    """Parse what is received by the URL and ship it out to the relvant channel."""
+    """Parse what is received by the URL and ship it out to the relevant channel."""
     # We should maybe catch and retain all those things the client tells us:
     # product=info.textgrid.lab.core.application.base_product
     # os=macosx

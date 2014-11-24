@@ -6,71 +6,81 @@
     <url>http://ocropus.rz-berlin.mpg.de/~kthoden/m/</url>
     <id>tg01</id>
     <name>textgridMS</name>
-    <icon>files/tg128.png</icon>
+    <!-- 32 pixel is the correct size -->
+    <icon>files/tg32.png</icon>
+    <company>TextGrid</company>
+    <companyUrl>http://www.textgrid.de</companyUrl>
+    <!-- the actual repository -->
+    <updateUrl>http://download.digital-humanities.de/updates/textgridlab/</updateUrl>
+    <!-- the p2 update site -->
     <p2UpdateSite>http://www.textgridlab.org/updates/beta</p2UpdateSite>
   </general>
-<!--
-    schreibt Thorsten
-    p2-Update-Site enthält (in diesem Falle
-    http://www.textgridlab.org/updates/beta). Dazu kommen dann noch
-    die zugehörigen IDs der Installable Units, d.i. in der Regel
-    die ID des entsprechenden Features mit angehängtem
-    ».feature.group«.
-    info.textgrid.lab.noteeditor.feature.feature.group
--->
+  <!-- the available categories in this marketplace -->
   <categories>
-    <category id="4">stable</category>
-    <category id="5">beta</category>
     <category id="6">external</category>
+    <category id="5">beta</category>
+    <category id="4">stable</category>
   </categories>
 
   <plugins>
     <!-- 
          The listing of the plugins. Each one has a name, a unique,
          ascending ID and should belong to a category of the ones
-         named above. confluenceID is the ID of the informing wikipage
+         named above. pageID is the ID of the informing
+         wikipage. installableUnit is where Eclipse gets the data from
     -->
     <plugin name="sadepublish">
       <cat>4</cat>
       <id>1</id>
       <longName>SADE Publish Tool</longName>
-      <confluenceID>34341688</confluenceID> <!--change Me!!-->
+      <pageID>34344152</pageID>
+      <installableUnit>info.textgrid.lab.feature.sadepublish.feature.group</installableUnit>
     </plugin>
     <plugin name="noteeditor">
       <cat>4</cat>
       <id>2</id>
       <longName>MEISE Noteneditor</longName>
-      <confluenceID>34341688</confluenceID> <!--change Me!!-->
+      <pageID>34344141</pageID>
+      <installableUnit>info.textgrid.lab.noteeditor.feature.feature.group</installableUnit>
     </plugin>
     <plugin name="digilib">
       <cat>4</cat>
       <id>3</id>
       <longName>DigiLib</longName>
-      <confluenceID>34341688</confluenceID>
+      <pageID>34341688</pageID>
+      <installableUnit>de.mpg.mpiwg.itgroup.textgrid.digilib.feature.feature.group</installableUnit>
     </plugin>
     <plugin name="collatex">
       <cat>4</cat>
       <id>4</id>
       <longName>CollateX</longName>
-      <confluenceID>34341688</confluenceID> <!--change Me!!-->
+      <pageID>34344155</pageID>
+      <installableUnit>info.textgrid.lab.collatex.feature.feature.group</installableUnit>
     </plugin>
     <plugin name="oxygen">
       <cat>6</cat>
       <id>5</id>
       <longName>Oxygen XML Editor</longName>
-      <confluenceID>34341688</confluenceID> <!--change Me!!-->
+      <pageID>34344150</pageID>
+      <installableUnit>com.oxygenxml.editor</installableUnit>
+      <!-- lex oxygen -->
+      <owner>Syncro Soft</owner>
+      <company>Syncro Soft</company>
+      <updateUrl>http://www.oxygenxml.com/InstData/Editor/Eclipse/site.xml</updateUrl>
     </plugin>
     <plugin name="linguistics">
       <cat>4</cat>
       <id>7</id>
       <longName>Linguistic Tools</longName>
-      <confluenceID>34341688</confluenceID> <!--change Me!!-->
+      <pageID>34344145</pageID>
+      <installableUnit>info.textgrid.lab.linguistics.feature.group</installableUnit>
     </plugin>
     <plugin name="ttle">
       <cat>4</cat>
       <id>8</id>
       <longName>Text Text Linkeditor</longName>
-      <confluenceID>34341688</confluenceID> <!--change Me!!-->
+      <pageID>34344147</pageID>
+      <installableUnit>info.textgrid.lab.ttle.feature.feature.group</installableUnit>
     </plugin>
   </plugins>
 </msConf>
