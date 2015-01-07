@@ -209,7 +209,7 @@ def get_modified_time(plugin_id):
     # <lastModifiedDate date="2014-11-24T12:26:01+0100" friendly="Nov 24, 2014"/>
     last_modified = raw_xml.xpath('/content/lastModifiedDate/@date')[0]
     return datetime.datetime.strptime(last_modified, "%Y-%m-%dT%H:%M:%S%z")
-# get_modified_time ends here
+# def get_modified_time ends here
 
 def get_updates():
     """Get new plugin information from Confluence. This is a function that
@@ -219,7 +219,10 @@ def get_updates():
     # renew cache
         get_data()
 
-# get_updates ends here
+# def get_updates ends here
+
+# parse the config: https://dev2.dariah.eu/wiki/rest/prototype/1/content/36342854
+
 
 ###########
 # Caching #
@@ -250,12 +253,42 @@ class PlugIn():
         self.description = description
         self.logo = logo
         self.license = license
+# class PlugIn ends here
+
+class MarketPlace():
+    """Why not have that, too"""
+    def __init__(self, title, desc, mpid, name, url, icon, company, company_url, update_url):
+        self.title = title
+        self.desc = desc
+        self.mpid = mpid
+        self.name = name
+        self.url = url
+        self.icon = icon
+        self.company = company
+        self.company_url = company_url
+        self.update_url = update_url
+
+    # what about
+    # <p2UpdateSite>http://www.textgridlab.org/updates/beta</p2UpdateSite>
+# class MarketPlace ends here
 
 #############################################
 # Here starts the building of the XML nodes #
 #############################################
 def build_mp_apip():
     """Return info about the whole marketplace. Which categories are in there?"""
+
+    tg_mpl = MarketPlace(
+        CONFIG.xpath('//general/title')[0].text,
+        CONFIG.xpath('//general/description')[0].text,
+        CONFIG.xpath('//general/id')[0].text,
+        CONFIG.xpath('//general/name')[0].text,
+        CONFIG.xpath('//general/url')[0].text,
+        CONFIG.xpath('//general/icon')[0].text,
+        CONFIG.xpath('//general/company')[0].text,
+        CONFIG.xpath('//general/companyUrl')[0].text,
+        CONFIG.xpath('//general/updateUrl')[0].text)
+
 
     # parsing the config file
     ms_id = CONFIG.xpath('//general/id')[0].text
