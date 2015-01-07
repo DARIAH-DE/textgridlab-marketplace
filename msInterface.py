@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8; mode: python -*-
 
+# tips von Thorsten
+# ans Monitoring anschließen: wenn die Anfrage OK zurückkommt, dann läufts ok
+# Konfigurationsdatei auch ins Confluence tun
+# caching einsetzen, wäre vielleicht ganz cool
+# Gute Fehlermeldungen produzieren
+
 """A tiny CGI webservice to provide marketplace functionality for
 TextGridLab/Eclipse.
 
@@ -33,14 +39,22 @@ The reference of the Eclipse interface is at http://wiki.eclipse.org/Marketplace
 
 # what is the license??
 
-__author__ = "Klaus Thoden"
-__date__ = "2014-11-24"
+__author__ = "Klaus Thoden, kthoden@mpiwg-berlin.mpg.de"
+__date__ = "2015-01-07"
 
 ###########
 # Imports #
 ###########
 from lxml import etree
+import logging
+logging.basicConfig(filename='msInterface.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 import cgi
+
+import os
+CACHE_DIR = "./cache"
+
+if not os.path.exists(CACHE_DIR):
+    os.mkdir(os.path.expanduser(CACHE_DIR))
 
 # had some big problems with getting the encoding right
 # answer on https://stackoverflow.com/questions/9322410/set-encoding-in-python-3-cgi-scripts
@@ -48,12 +62,14 @@ import cgi
 # Ensures that subsequent open()s are UTF-8 encoded.
 # Mind you, this is dependant on the server it is running on!
 import locale
-locale.getpreferredencoding = lambda: 'UTF-8'
 import sys
-# Re-open standard files in UTF-8 mode.
-sys.stdin = open('/dev/stdin', 'r')
-sys.stdout = open('/dev/stdout', 'w')
-sys.stderr = open('/dev/stderr', 'w')
+import socket
+if socket.gethostname() == "ocropus":
+    locale.getpreferredencoding = lambda: 'UTF-8'
+    # Re-open standard files in UTF-8 mode.
+    sys.stdin = open('/dev/stdin', 'r')
+    sys.stdout = open('/dev/stdout', 'w')
+    sys.stderr = open('/dev/stderr', 'w')
 
 # Atlassian namespaces, we don't really use them
 # http://www.amnet.net.au/~ghannington/confluence/docs/confluence/g-ri_confluence.ri.html
@@ -139,12 +155,14 @@ def get_confluence_plugin_data(plugin_id):
 
     base_url = "https://dev2.dariah.eu/wiki/rest/prototype/1/content/"
     fullpath = base_url + plugin_id
-
+    logging.debug("Trying to fetch %s" % fullpath)
     usock = urllib.request.urlopen(fullpath)
 
     try:
+        logging.info("Querying %s for data" % fullpath)
         plugin_info = etree.parse(usock)
     except etree.XMLSyntaxError:
+        logging.error("Retrieved XML syntax error.")
         sys.exit()
     usock.close()
 
@@ -182,6 +200,56 @@ def compile_info(plugin_data):
     })
     return plugin_dict
 # def compile_info ends here
+
+def get_modified_time(plugin_id):
+    """Parse the last modified date from plugin info page. Return parsed
+    datetime object"""
+
+    raw_xml = get_confluence_plugin_data(plugin_id)
+    # <lastModifiedDate date="2014-11-24T12:26:01+0100" friendly="Nov 24, 2014"/>
+    last_modified = raw_xml.xpath('/content/lastModifiedDate/@date')[0]
+    return datetime.datetime.strptime(last_modified, "%Y-%m-%dT%H:%M:%S%z")
+# get_modified_time ends here
+
+def get_updates():
+    """Get new plugin information from Confluence. This is a function that
+    should be run by a cron job or something"""
+    wiki_date = get_modified_time(plugin_id)
+    if wiki_date > cached_date:
+    # renew cache
+        get_data()
+
+# get_updates ends here
+
+###########
+# Caching #
+###########
+def make_cache():
+    """In order to gain additional speed, cache the data and store them on
+    the server as pickled objects
+    """
+    pass
+# make_cache ends here
+    
+
+# newdate = datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%S%z")
+# if newdate>olddate: get_data
+# store them as pickles?
+#
+# at the same time, there should be a function, accessible also via the cgi, to refresh the cache
+# instantaneously
+
+###########
+# Objects #
+###########
+# whole new thing
+class PlugIn():
+    """Useful comment here"""
+    def __init__(self, title, description, logo, license):
+        self.title = title
+        self.description = description
+        self.logo = logo
+        self.license = license
 
 #############################################
 # Here starts the building of the XML nodes #
@@ -253,7 +321,7 @@ def build_mp_taxonomy(market_id, cate_id):
     # build the XML
     mplace = etree.Element("marketplace")
     category = etree.SubElement(mplace, "category", id=str(cate_id), name=(cate_dict[cate_id]), url=ms_url+"taxonomy/term/"+str(market_id)+", "+str(cate_id))
-    # repeat for thoese belonging to the same group
+    # repeat for those belonging to the same group
     for i_unit in INST_UNITS.items():
         if int(i_unit[1][2]) == int(cate_id):
             node = etree.SubElement(category, "node", id=i_unit[1][0], name=i_unit[1][1], url=ms_url+"content/"+i_unit[1][0])
@@ -262,14 +330,22 @@ def build_mp_taxonomy(market_id, cate_id):
 # def build_mp_taxonomy ends here
 
 def build_mp_node_apip(plug_name):
-    """Return info on installable Unit (i.e. plugin)."""
+    """Return info on installable Unit (i.e. plugin). Get info from the
+    CONFIG and from Confluence info page. Input is plug_name"""
+
+    import os
+
     ms_url = CONFIG.xpath('//general/url')[0].text
     ms_id = CONFIG.xpath('//general/id')[0].text
 
     # here we get the info about the plugin! returns a dictionary full of stuff
+    # should be an object
     plugin_id = INST_UNITS[plug_name][3]
-    raw_xml = get_confluence_plugin_data(plugin_id)
-    plug = compile_info(raw_xml)
+    if os.path.exists("%s/%s.p" % (CACHE_DIR,plug_name)):
+        plug = get_from_cache(plug_name)
+    else:
+        raw_xml = get_confluence_plugin_data(plugin_id)
+        plug = compile_info(raw_xml)
 
     node = etree.Element("node", id=INST_UNITS[plug_name][0], name=INST_UNITS[plug_name][1], url=ms_url+"content/"+INST_UNITS[plug_name][0])
 
