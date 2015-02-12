@@ -101,22 +101,23 @@ INST_UNITS = {}
 class PlugIn():
     """Useful comment here"""
     def __init__(self, 
-                 title,
-                 description,
-                 logo, 
-                 license, 
-                 name, 
-                 category, 
-                 pageID, 
-                 installableUnit, 
+                 name="", 
+                 human_title="",
+                 description="",
+                 logo="", 
+                 license="",
+                 plugID="",
+                 category="", 
+                 pageID="", 
+                 installableUnit="", 
                  owner=CONFIG['General']['company'], 
                  company=CONFIG['General']['company'], 
                  updateURL=CONFIG['General']['updateUrl']):
-        self.title = title
+        self.human_title = human_title
         self.description = description
         self.logo = logo
         self.license = license
-        self.plugid = plugid
+        self.plugID = plugID
         self.name = name
         self.category = category
         self.pageID = pageID
@@ -128,8 +129,8 @@ class PlugIn():
 
 class MarketPlace():
     """Why not have that, too"""
-    def __init__(self, title, desc, mpid, name, url, icon, company, company_url, update_url):
-        self.title = title
+    def __init__(self, human_title, desc, mpid, name, url, icon, company, company_url, update_url):
+        self.human_title = human_title
         self.desc = desc
         self.mpid = mpid
         self.name = name
@@ -141,11 +142,17 @@ class MarketPlace():
 
     # what about
     # <p2UpdateSite>http://www.textgridlab.org/updates/beta</p2UpdateSite>
+
+    # should be configurable, too!
+    # search_tab = etree.SubElement(wizard, "searchtab", enabled="0").text = "Search"
+    # pop_tab = etree.SubElement(wizard, "populartab", enabled="1").text = "Popular"
+    # rec_tab = etree.SubElement(wizard, "recenttab", enabled="0").text = "Recent"
+
 # class MarketPlace ends here
 
 # create Marketplace object
 MPLACE = MarketPlace(
-    CONFIG['General']['title'],
+    CONFIG['General']['human_title'],
     CONFIG['General']['description'],
     CONFIG['General']['id'],
     CONFIG['General']['name'],
@@ -189,8 +196,12 @@ def reverse_tags(text):
 # def reverse_tags ends here
 
 def unescape(text):
-    """With thanks to http://effbot.org/zone/re-sub.htm#unescape-html.
-    Modified to work with Python3."""
+    """Remove HTML or XML character references and entities from a text
+    string. Return a Unicode string.
+
+    With thanks to http://effbot.org/zone/re-sub.htm#unescape-html.
+    Modified to work with Python3.
+    """
     import re, html.entities
 
     def fixup(m):
@@ -219,7 +230,8 @@ def unescape(text):
 ####################
 def get_confluence_page(confluence_page_id):
     """Retrieve a page from Confluence's REST api. The confluence_page_id
-    is found in the config file. Return an XML document.
+    is found in the config file. Return an XML document which needs to
+    be refined using parse_confluence_body.
     """
     import urllib.request, urllib.parse, urllib.error
 
@@ -240,9 +252,9 @@ def get_confluence_page(confluence_page_id):
 ## def get_confluence_page ends here
 
 def parse_confluence_body(returned_xml):
-    """Parse the page returned by get_confluence_page, fix the code
-    and read the relevant bits into XML and return that XML element.
-    In order to make sure that we get wellformed XML.
+    """Parse the page returned by get_confluence_page, fix the code and
+    read the content of /content/body, which is escaped XML code, into
+    XML. Return that XML element, wrapped in a new root tag "pagebody".
     """
 
     plugin_body = returned_xml.xpath('/content/body')[0].text
@@ -267,14 +279,14 @@ def compile_info(parsed_confluence_body):
     """
 
     # this should work differently: use XPath to parse the title based on the th-Element "Titel"
-
+    # here: //tr/th[text()="Titel"]/../td/text()
     # these are the guts we need
     plugin_dict = dict({
-        "pl_title" : parsed_confluence_body.xpath('/pagebody/table/tbody/tr[1]/td')[0].text,
-        "pl_desc" : parsed_confluence_body.xpath('/pagebody/table/tbody/tr[2]/td')[0].text,
-        "pl_icon" : parsed_confluence_body.xpath('/pagebody/table/tbody/tr[3]/td/image/attachment/@filename')[0],
-        # OBS! license needs not be a link
-        "pl_license" : parsed_confluence_body.xpath('/pagebody/table/tbody/tr[4]/td/a')[0].text
+        "pl_title" : parsed_confluence_body.xpath('/pagebody/table/tbody/tr/th[text()="Titel"]/../td/text()'),
+        "pl_desc" : parsed_confluence_body.xpath('/pagebody/table/tbody/tr/th[text()="Beschreibung"]/../td/text()'),
+        "pl_icon" : parsed_confluence_body.xpath('/pagebody/table/tbody/tr/th[text()="Logo"]/../td/image/attachment/@filename')[0],
+        # Careful! If we do it like this, then license needs not be a link!
+        "pl_license" : parsed_confluence_body.xpath('/pagebody/table/tbody/tr/th[text()="Lizenz"]/../td/a'),
     })
     return plugin_dict
 # def compile_info ends here
@@ -307,7 +319,7 @@ def get_updates():
         get_data()
 # def get_updates ends here
 
-def parse_confluence_config():
+def get_confluence_config():
     """Read the developer's configuration of the plugins. This is also
     kept on Confluence so that it can be modified more easily.
     Currently it resides on
@@ -315,11 +327,12 @@ def parse_confluence_config():
     """
     info_site = CONFIG['General']['pluginInfo']
 
-    plugin_info = get_confluence_page(info_site))
+    plugin_info = get_confluence_page(info_site)
     table = parse_confluence_body(plugin_info)
 
     return table
-# def parse_confluence_config ends here
+# def get_confluence_config ends here
+
 ###########
 # Caching #
 ###########
@@ -343,6 +356,71 @@ def get_cached_time():
 
 # def get_cached_time ends here
 
+#################
+# The Beginning #
+#################
+
+def some_infos():
+    """Playing around with things"""
+    # Get the config and start building objects
+    infopage_xml=get_confluence_config()
+
+    # this is the list of all plugin names
+    list_of_plugins = infopage_xml.xpath('/pagebody/table/tbody/tr[*]/td[2]/text()')
+
+    # Playing around with classes, according to
+    # http://inventwithpython.com/blog/2014/12/02/why-is-object-oriented-programming-useful-with-an-role-playing-game-example/
+    # how do I get a sensible name for the plugin? or are they ok kept in a dictionary?
+    # keeping all the objects in a dictionary seems like a typical way?
+    plugins = []
+
+    # iterate through the table and get info about plugin
+    for l in range(len(list_of_plugins)):
+        # construct an object for each plugin, put the name in
+        plugins.append(PlugIn(list_of_plugins[l]))
+        for i in range(1,9):
+            # this loop goes through each line of the table and
+            # assigns the appropriate value to each plugin using
+            # double slashes before the text() node to cater for the
+            # occasional p tag
+            tmpx = '/pagebody/table/tbody/tr[%s]/td[%s]//text()' % (l+2,i)
+            if i == 1:
+                plugins[l].plugID = infopage_xml.xpath(tmpx)[0]
+            # name is already in
+            # if i == 2:
+            #     plugins[l].name = infopage_xml.xpath(tmpx)[0]
+            if i == 3:
+                plugins[l].category = infopage_xml.xpath(tmpx)[0]
+            if i == 4:
+                plugins[l].pageID = infopage_xml.xpath(tmpx)[0]
+            if i == 5:
+                plugins[l].installableUnit = infopage_xml.xpath(tmpx)[0]
+            if i == 6:
+                if infopage_xml.xpath(tmpx)[0] != "\xa0":
+                    plugins[l].owner = infopage_xml.xpath(tmpx)[0]
+            if i == 7:
+                if infopage_xml.xpath(tmpx)[0] != "\xa0":
+                    plugins[l].company = infopage_xml.xpath(tmpx)[0]
+            if i == 8:
+                if len(infopage_xml.xpath(tmpx)) == 0:
+                    tmpxhref = '/pagebody/table/tbody/tr[%s]/td[%s]/a/@href' % (l+2,i)
+                    if infopage_xml.xpath(tmpxhref)[0] != "\xa0":
+                        plugins[l].updateURL = infopage_xml.xpath(tmpxhref)[0]
+
+        # get additional info from the plugin info pages
+        for plugin in plugins:
+            raw_xml = get_confluence_page(plugin.pageID)
+            parsed_body = parse_confluence_body(raw_xml)
+
+            # double slashes before the text() node to cater for the
+            # occasional p tag
+            plugin.human_title = parsed_body.xpath('/pagebody/table/tbody/tr/th[text()="Titel"]/../td//text()')[0]
+            plugin.description = parsed_body.xpath('/pagebody/table/tbody/tr/th[text()="Beschreibung"]/../td//text()')[0]
+            plugin.icon = parsed_body.xpath('/pagebody/table/tbody/tr/th[text()="Logo"]/../td/image/attachment/@filename')
+            plugin.license = parsed_body.xpath('/pagebody/table/tbody/tr/th[text()="Lizenz"]/../td/a/@href')
+
+    return plugins
+# def some_infos ends here
 
 #############################################
 # Here starts the building of the XML nodes #
@@ -383,7 +461,7 @@ def build_mp_cat_apip():
     catalogs = etree.SubElement(mplace, "catalogs")
     catalog = etree.SubElement(catalogs, "catalog", 
                                id=MPLACE.mpid, 
-                               title=MPLACE.title, 
+                               title=MPLACE.human_title, 
                                url=MPLACE.url, 
                                selfContained="1", 
                                icon=MPLACE.url+MPLACE.icon)
@@ -559,9 +637,9 @@ def output_xml(node):
     # this is of a bytes type
     xml_bytes = etree.tostring(node, pretty_print=True, encoding='utf-8', xml_declaration=True)
     # convert this to a string
-    out_decode = xml_bytes.decode('utf-8')
+    ship_out = xml_bytes.decode('utf-8')
     # for debugging
-    print(out_decode)
+    print(ship_out)
 # def output_xml ends here
 
 ################
