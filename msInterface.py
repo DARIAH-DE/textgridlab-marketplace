@@ -90,9 +90,13 @@ CONFIG.read("ms.conf")
 # we somehow need to know here as well which category (external, beta,
 # stable) this is in in the tuple first is ID, second the title, third
 # the category. We should get this from Confluence
+PLUGINS = build_plugin_info()
+
 INST_UNITS = {}
 #for name, idno, longname, cat, conf_id, inst_unit in zip(CONFIG.xpath('//plugin/@name'), CONFIG.xpath('//plugin/id'), CONFIG.xpath('//plugin/longName'), CONFIG.xpath('//plugin/cat'), CONFIG.xpath('//plugin/pageID'), CONFIG.xpath('//plugin/installableUnit')):
 #    INST_UNITS.update({name:(idno.text, longname.text, cat.text, conf_id.text, inst_unit.text)})
+# just for recapitulating
+#INST_UNITS = {'linguistics': ('7', 'Linguistic Tools', '4', '34344145', 'info.textgrid.lab.linguistics.feature.group'), 'ttle': ('8', 'Text Text Linkeditor', '4', '34344147', 'info.textgrid.lab.ttle.feature.feature.group'), 'collatex': ('4', 'CollateX', '4', '34344155', 'info.textgrid.lab.collatex.feature.feature.group'), 'oxygen': ('5', 'Oxygen XML Editor', '6', '34344150', 'com.oxygenxml.editor'), 'digilib': ('3', 'DigiLib', '4', '34341688', 'de.mpg.mpiwg.itgroup.textgrid.digilib.feature.feature.group'), 'sadepublish': ('1', 'SADE Publish Tool', '4', '34344152', 'info.textgrid.lab.feature.sadepublish.feature.group'), 'noteeditor': ('2', 'MEISE Noteneditor', '4', '34344141', 'info.textgrid.lab.noteeditor.feature.feature.group')}
 
 ###########
 # Objects #
@@ -106,9 +110,9 @@ class PlugIn():
                  description="",
                  logo="", 
                  license="",
-                 plugID="",
+                 plugId="",
                  category="", 
-                 pageID="", 
+                 pageId="", 
                  installableUnit="", 
                  owner=CONFIG['General']['company'], 
                  company=CONFIG['General']['company'], 
@@ -117,10 +121,10 @@ class PlugIn():
         self.description = description
         self.logo = logo
         self.license = license
-        self.plugID = plugID
+        self.plugId = plugId
         self.name = name
         self.category = category
-        self.pageID = pageID
+        self.pageId = pageId
         self.installableUnit = installableUnit
         self.owner = owner
         self.company = company
@@ -139,9 +143,6 @@ class MarketPlace():
         self.company = company
         self.company_url = company_url
         self.update_url = update_url
-
-    # what about
-    # <p2UpdateSite>http://www.textgridlab.org/updates/beta</p2UpdateSite>
 
     # should be configurable, too!
     # search_tab = etree.SubElement(wizard, "searchtab", enabled="0").text = "Search"
@@ -272,6 +273,69 @@ def parse_confluence_body(returned_xml):
     return parsed_body
 ## def parse_confluence_body ends here
 
+def build_plugin_info():
+    """Query the confluence wiki and return a list of plugin objects."""
+    # Get the config and start building objects
+    infopage_xml = get_confluence_config()
+
+    # this is the list of all plugin names
+    list_of_plugins = infopage_xml.xpath('/pagebody/table/tbody/tr[*]/td[2]/text()')
+
+    # Playing around with classes, according to
+    # http://inventwithpython.com/blog/2014/12/02/why-is-object-oriented-programming-useful-with-an-role-playing-game-example/
+    # how do I get a sensible name for the plugin? or are they ok kept in a dictionary?
+    # keeping all the objects in a dictionary seems like a typical way?
+    plugins = []
+
+    # iterate through the table and get info about plugin
+    for l in range(len(list_of_plugins)):
+        # construct an object for each plugin, put the name in
+        plugins.append(PlugIn(list_of_plugins[l]))
+        for i in range(1,9):
+            # this loop goes through each line of the table and
+            # assigns the appropriate value to each plugin using
+            # double slashes before the text() node to cater for the
+            # occasional p tag
+            tmpx = '/pagebody/table/tbody/tr[%s]/td[%s]//text()' % (l+2, i)
+            if i == 1:
+                plugins[l].plugId = infopage_xml.xpath(tmpx)[0]
+            # name is already in
+            # if i == 2:
+            #     plugins[l].name = infopage_xml.xpath(tmpx)[0]
+            if i == 3:
+                plugins[l].category = infopage_xml.xpath(tmpx)[0]
+            if i == 4:
+                plugins[l].pageId = infopage_xml.xpath(tmpx)[0]
+            if i == 5:
+                plugins[l].installableUnit = infopage_xml.xpath(tmpx)[0]
+            if i == 6:
+                if infopage_xml.xpath(tmpx)[0] != "\xa0":
+                    plugins[l].owner = infopage_xml.xpath(tmpx)[0]
+            if i == 7:
+                if infopage_xml.xpath(tmpx)[0] != "\xa0":
+                    plugins[l].company = infopage_xml.xpath(tmpx)[0]
+            if i == 8:
+                if len(infopage_xml.xpath(tmpx)) == 0:
+                    tmpxhref = '/pagebody/table/tbody/tr[%s]/td[%s]/a/@href' % (l+2, i)
+                    if infopage_xml.xpath(tmpxhref)[0] != "\xa0":
+                        plugins[l].updateURL = infopage_xml.xpath(tmpxhref)[0]
+
+        # get additional info from the plugin info pages
+        for plugin in plugins:
+            raw_xml = get_confluence_page(plugin.pageId)
+            parsed_body = parse_confluence_body(raw_xml)
+
+            # double slashes before the text() node to cater for the
+            # occasional p tag
+            plugin.human_title = parsed_body.xpath('/pagebody/table/tbody/tr/th[text()="Titel"]/../td//text()')[0]
+            plugin.description = parsed_body.xpath('/pagebody/table/tbody/tr/th[text()="Beschreibung"]/../td//text()')[0]
+            plugin.icon = parsed_body.xpath('/pagebody/table/tbody/tr/th[text()="Logo"]/../td/image/attachment/@filename')
+            plugin.license = parsed_body.xpath('/pagebody/table/tbody/tr/th[text()="Lizenz"]/../td/a/@href')
+
+    return plugins
+# def build_plugin_info ends here
+
+
 def compile_info(parsed_confluence_body):
     """Return a dictionary of the things parsed out of the webpage. The
     table we are parsing needs to be in a strict order concerning the
@@ -356,72 +420,6 @@ def get_cached_time():
 
 # def get_cached_time ends here
 
-#################
-# The Beginning #
-#################
-
-def some_infos():
-    """Playing around with things"""
-    # Get the config and start building objects
-    infopage_xml=get_confluence_config()
-
-    # this is the list of all plugin names
-    list_of_plugins = infopage_xml.xpath('/pagebody/table/tbody/tr[*]/td[2]/text()')
-
-    # Playing around with classes, according to
-    # http://inventwithpython.com/blog/2014/12/02/why-is-object-oriented-programming-useful-with-an-role-playing-game-example/
-    # how do I get a sensible name for the plugin? or are they ok kept in a dictionary?
-    # keeping all the objects in a dictionary seems like a typical way?
-    plugins = []
-
-    # iterate through the table and get info about plugin
-    for l in range(len(list_of_plugins)):
-        # construct an object for each plugin, put the name in
-        plugins.append(PlugIn(list_of_plugins[l]))
-        for i in range(1,9):
-            # this loop goes through each line of the table and
-            # assigns the appropriate value to each plugin using
-            # double slashes before the text() node to cater for the
-            # occasional p tag
-            tmpx = '/pagebody/table/tbody/tr[%s]/td[%s]//text()' % (l+2,i)
-            if i == 1:
-                plugins[l].plugID = infopage_xml.xpath(tmpx)[0]
-            # name is already in
-            # if i == 2:
-            #     plugins[l].name = infopage_xml.xpath(tmpx)[0]
-            if i == 3:
-                plugins[l].category = infopage_xml.xpath(tmpx)[0]
-            if i == 4:
-                plugins[l].pageID = infopage_xml.xpath(tmpx)[0]
-            if i == 5:
-                plugins[l].installableUnit = infopage_xml.xpath(tmpx)[0]
-            if i == 6:
-                if infopage_xml.xpath(tmpx)[0] != "\xa0":
-                    plugins[l].owner = infopage_xml.xpath(tmpx)[0]
-            if i == 7:
-                if infopage_xml.xpath(tmpx)[0] != "\xa0":
-                    plugins[l].company = infopage_xml.xpath(tmpx)[0]
-            if i == 8:
-                if len(infopage_xml.xpath(tmpx)) == 0:
-                    tmpxhref = '/pagebody/table/tbody/tr[%s]/td[%s]/a/@href' % (l+2,i)
-                    if infopage_xml.xpath(tmpxhref)[0] != "\xa0":
-                        plugins[l].updateURL = infopage_xml.xpath(tmpxhref)[0]
-
-        # get additional info from the plugin info pages
-        for plugin in plugins:
-            raw_xml = get_confluence_page(plugin.pageID)
-            parsed_body = parse_confluence_body(raw_xml)
-
-            # double slashes before the text() node to cater for the
-            # occasional p tag
-            plugin.human_title = parsed_body.xpath('/pagebody/table/tbody/tr/th[text()="Titel"]/../td//text()')[0]
-            plugin.description = parsed_body.xpath('/pagebody/table/tbody/tr/th[text()="Beschreibung"]/../td//text()')[0]
-            plugin.icon = parsed_body.xpath('/pagebody/table/tbody/tr/th[text()="Logo"]/../td/image/attachment/@filename')
-            plugin.license = parsed_body.xpath('/pagebody/table/tbody/tr/th[text()="Lizenz"]/../td/a/@href')
-
-    return plugins
-# def some_infos ends here
-
 #############################################
 # Here starts the building of the XML nodes #
 #############################################
@@ -469,6 +467,7 @@ def build_mp_cat_apip():
     dep_rep = etree.SubElement(catalog, "dependenciesRepository")
     wizard = etree.SubElement(catalog, "wizard", title="")
     icon = etree.SubElement(wizard, "icon")
+    # move this to the configuration?
     search_tab = etree.SubElement(wizard, "searchtab", enabled="0").text = "Search"
     pop_tab = etree.SubElement(wizard, "populartab", enabled="1").text = "Popular"
     rec_tab = etree.SubElement(wizard, "recenttab", enabled="0").text = "Recent"
@@ -476,6 +475,8 @@ def build_mp_cat_apip():
 # def build_mp_cat_apip ends here
 
 def build_mp_taxonomy(market_id, cate_id):
+    # REWRITE! INST_UNITS is no more!
+
     """Construct the taxonomy. List all plugins of one category. The
     category a plugin belongs to is taken from the config."""
 
@@ -484,7 +485,7 @@ def build_mp_taxonomy(market_id, cate_id):
     for cat_key, cat_val in zip(list(CONFIG['Categories'].values()), list(CONFIG['Categories'].keys())):
         cate_dict.update({cat_val:cat_key})
 
-    # a small detour, because we might get the name value of the category instead of the ID
+    # a small detour, because we might get the name value of the category instead of the Id
     if cate_id in [v for k, v in list(cate_dict.items())]:
         cate_id = [k for k, v in list(cate_dict.items()) if v == cate_id][0]
         # using the function
@@ -496,18 +497,30 @@ def build_mp_taxonomy(market_id, cate_id):
                                 id=str(cate_id), 
                                 name=(cate_dict[cate_id]), 
                                 url=MPLACE.url+"taxonomy/term/"+str(market_id)+", "+str(cate_id))
+
     # repeat for those belonging to the same group
-    for i_unit in INST_UNITS.items():
-        if int(i_unit[1][2]) == int(cate_id):
-            node = etree.SubElement(category, "node", 
-                                    id=i_unit[1][0], 
-                                    name=i_unit[1][1], 
-                                    url=MPLACE.url+"content/"+i_unit[1][0])
+    for iu in PLUGINS:
+        if int(iu.category) == int(cate_id):
+            node = etree.SubElement(category, "node",
+                                    id = iu.plugId,
+                                    name = iu.human_title,
+                                    url = MPLACE.url + "content/" + iu.plugId)
+            # do something about this!!
             fav = etree.SubElement(category, "favorited").text = "0"
+
+    # for i_unit in INST_UNITS.items():
+    #     if int(i_unit[1][2]) == int(cate_id):
+    #         node = etree.SubElement(category, "node", 
+    #                                 id=i_unit[1][0], 
+    #                                 name=i_unit[1][1], 
+    #                                 url=MPLACE.url+"content/"+i_unit[1][0])
+    #         fav = etree.SubElement(category, "favorited").text = "0"
     return mplace
 # def build_mp_taxonomy ends here
 
 def build_mp_node_apip(plug_name):
+    # REWRITE! INST_UNITS is no more!
+
     """Return info on installable Unit (i.e. plugin). Get info from the
     CONFIG and from Confluence info page. Input is plug_name"""
 
@@ -516,7 +529,7 @@ def build_mp_node_apip(plug_name):
     # here we get the info about the plugin! returns a dictionary full of stuff
     # should be an object
     plugin_id = INST_UNITS[plug_name][3]
-    if os.path.exists("%s/%s.p" % (CACHE_DIR,plug_name)):
+    if os.path.exists("%s/%s.p" % (CACHE_DIR, plug_name)):
         plug = get_from_cache(plug_name)
     else:
         raw_xml = get_confluence_page(plugin_id)
@@ -569,7 +582,7 @@ def build_mp_node_apip(plug_name):
     resource_element = etree.SubElement(node, "resource") # this?
     # see logo
     # screenshot would be displayed if we click on more info in marketplace
-    scrshotEle = etree.SubElement(node,"screenshot").text = "https://i.imgur.com/z8hViF9.jpg"
+    scrshotEle = etree.SubElement(node, "screenshot").text = "https://i.imgur.com/z8hViF9.jpg"
     #scrshotEle = etree.SubElement(node,"screenshot").text = "https://develop.sub.uni-goettingen.de/repos/textgrid/trunk/lab/noteeditor/info.textgrid.lab.noteeditor.feature/Screenshot_MEISE_2012-04-20.png"
     # also hidden field?
     tmp = '//plugin[@name="%s"]/updateUrl' % plug_name
@@ -588,7 +601,7 @@ def build_mp_frfp_apip(list_type, mark_id=CONFIG['General']['id']):
     similar. Hence the name of this function.
     """
     # this list needs to be somewhat dynamic
-    featured_list = ["oxygen","noteeditor","digilib","collatex","sadepublish","ttle"]
+    featured_list = ["oxygen", "noteeditor", "digilib", "collatex", "sadepublish", "ttle"]
     mplace = etree.Element("marketplace")
     plugin_list = etree.SubElement(mplace, list_type, count=str(len(featured_list)))
     # make the nodes here as a subElement of the list
@@ -600,10 +613,16 @@ def build_mp_frfp_apip(list_type, mark_id=CONFIG['General']['id']):
 # def build_mp_frfp_apip ends here
 
 def build_mp_content_apip(node_id):
-    """Return info on a single node."""
+    # REWRITE! INST_UNITS is no more!
 
+    """Return info on a single node. The node_id is """
+
+    # rubbish!
+    # make a dictionary
     auxdic = dict()
+    # get something from each unit
     for i_unit in INST_UNITS.items():
+        # hash table of plugId and name
         auxdic.update({i_unit[1][0] : i_unit[0]})
 
     mplace = etree.Element("marketplace")
@@ -617,6 +636,8 @@ def build_mp_content_apip(node_id):
 # Output #
 ##########
 def goto_confluence(node_id):
+    # REWRITE! INST_UNITS is no more!
+
     """Redirect the browser to the Confluence page."""
 
     auxdic = dict()
