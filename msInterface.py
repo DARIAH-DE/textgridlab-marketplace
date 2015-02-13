@@ -59,6 +59,7 @@ logging.basicConfig(filename='msInterface.log', level=logging.DEBUG, format='%(a
 import cgi
 
 import os
+# move this into config!
 CACHE_DIR = "./cache"
 
 if not os.path.exists(CACHE_DIR):
@@ -156,7 +157,6 @@ class MarketPlace():
     # rec_tab = etree.SubElement(wizard, "recenttab", enabled="0").text = "Recent"
 
 # class MarketPlace ends here
-
 
 #################
 # Small helpers #
@@ -540,7 +540,7 @@ def build_mp_node_apip(plug_id):
     """
 
     import os
-
+    print(plug_id)
     # find out which Plugin we need
     for candidate in PLUGINS:
         if candidate.plugId == plug_id:
@@ -693,20 +693,6 @@ def main():
     # ws=cocoa
     # nl=de_DE
 
-    # create Marketplace object
-    MPLACE = MarketPlace(
-        CONFIG['General']['human_title'],
-        CONFIG['General']['description'],
-        CONFIG['General']['id'],
-        CONFIG['General']['name'],
-        CONFIG['General']['url'],
-        CONFIG['General']['icon'],
-        CONFIG['General']['company'],
-        CONFIG['General']['companyUrl'],
-        CONFIG['General']['updateUrl'])
-
-    PLUGINS = build_plugin_info()
-
     # arguments need to be read into something that the CGI can deal with
     form = cgi.FieldStorage()
     if form.getvalue('action') == 'main':
@@ -741,6 +727,21 @@ def main():
         node = "not yet implemented"
 
 if __name__ == "__main__":
+    # yay! Plugins!
+    PLUGINS = build_plugin_info()
+
+    # create Marketplace object
+    MPLACE = MarketPlace(
+        CONFIG['General']['human_title'],
+        CONFIG['General']['description'],
+        CONFIG['General']['id'],
+        CONFIG['General']['name'],
+        CONFIG['General']['url'],
+        CONFIG['General']['icon'],
+        CONFIG['General']['company'],
+        CONFIG['General']['companyUrl'],
+        CONFIG['General']['updateUrl'])
+
     main()
 
 #########
