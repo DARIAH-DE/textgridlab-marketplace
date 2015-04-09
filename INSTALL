@@ -1,0 +1,38 @@
+Requirements
+- apache2 web server with modules
+  - python
+  - cgi
+  - rewrite
+- Python3
+- Python3-lxml
+
+This software can be cloned from
+git@git.projects.gwdg.de:textgridlab-marketplace.git
+
+Installation
+- Create additional directory in Apache's DocumentRoot (called tgmpl
+  in this example)
+- Copy an icon (32x32) into that directory
+- Copy the htaccess file into that directory and modify the paths
+- Rename htaccess to .htaccess
+- Copy the cgi and the conf file into the cgi-bin directory
+
+Server configuration
+- Enable the modules python, cgi, rewrite
+- Add another directive to the site:
+    <Directory /var/www/tgmpl>
+      Options Indexes FollowSymLinks MultiViews
+      AllowOverride All
+      Order allow,deny
+      allow from all
+    </Directory>
+- Restart Apache
+
+Software configuration
+All of the configuration is managed in the conf file residing next to
+the cgi. The values are more or less self-explanatory
+
+Testing the installation
+<server address>/cgi-bin/msInterface.cgi?action=main
+should give you a valid answer
+<server address>/tgmpl/api/p should do that as well
