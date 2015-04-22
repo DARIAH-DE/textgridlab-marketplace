@@ -15,15 +15,8 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-
 # Tips von Thorsten
 # ans Monitoring anschließen: wenn die Anfrage OK zurückkommt, dann läufts ok
-# Konfigurationsdatei auch ins Confluence tun
-# caching einsetzen, wäre vielleicht ganz cool
-# Gute Fehlermeldungen produzieren
-#
-# Konfiguration wieder ohne XML, weil kürzer
-# 
 
 """A Python CGI webservice to provide marketplace functionality for
 TextGridLab/Eclipse.
@@ -41,8 +34,7 @@ A fourth component is a .htaccess file which deals with the rewriting
 of URLs to cater for all the needs. Using htaccess means of course
 that we need an Apache webserver.
 
-The system also expects a directory called "files" on the server which
-contains an image file to be used as a logo.
+The system also expects an image file to be used as a logo.
 
 To try out the functionality, the ini file of the Lab has to be tweaked:
 -Dorg.eclipse.epp.internal.mpc.core.service.DefaultCatalogService.url=http://ocropus.rz-berlin.mpg.de/~kthoden/m/
@@ -81,13 +73,16 @@ import os
 import locale
 import sys
 import socket
-if socket.gethostname() == "ocropus":
+# list of servers we are working on
+servers = ("ocropus", "textgrid-esx2")
+if socket.gethostname() in servers:
     locale.getpreferredencoding = lambda: 'UTF-8'
     # Re-open standard files in UTF-8 mode.
     sys.stdin = open('/dev/stdin', 'r')
     sys.stdout = open('/dev/stdout', 'w')
     sys.stderr = open('/dev/stderr', 'w')
 
+# both config and cache directory are in the same place as this script
 CONFIG = configparser.ConfigParser()
 CONFIG.read("ms.conf")
 
@@ -241,6 +236,21 @@ def get_confluence_config():
     return table
 # def get_confluence_config ends here
 
+def get_list_of_plugins():
+    """Query the confluence wiki and return a list of plugin objects."""
+    # Get the XML of the infopage and store it in memory
+    infopage_xml = get_confluence_config()
+
+    # create immutable tuple of the page_ids, because we need to deal
+    # with positional stuff in that list lateron
+    lopi = tuple(infopage_xml.xpath('/pluginInfo/table/tbody/tr[*]/td[4]/text()'))
+
+    # with that tuple in place, we can call the build function
+    # individually, however recurring to the tuple in order to get
+    # info from the correct line in the table from infopage_xml
+    return lopi, infopage_xml
+# def get_list_of_plugins
+
 def get_confluence_page(confluence_page_id):
     """Retrieve a page from Confluence's REST api. The confluence_page_id
     is found in the config file. Return an XML document which needs to
@@ -291,24 +301,29 @@ def parse_confluence_body(returned_xml):
     return parsed_body
 ## def parse_confluence_body ends here
 
-def get_list_of_plugins():
-    """Query the confluence wiki and return a list of plugin objects."""
-    # Get the config and start building objects
-    infopage_xml = get_confluence_config()
+def confluence_page_xml(page_id):
+    """Get a page from the confluence wiki, have it parsed and
+    timestamped. This is the XML to work with"""
+    # get additional info from the plugin info pages
+    raw_xml = get_confluence_page(page_id)
+    parsed_body = parse_confluence_body(raw_xml)
 
-    # create immutable tuple of the page_ids, because we need to deal
-    # with positional stuff in that list lateron
-    lopi = tuple(infopage_xml.xpath('/pluginInfo/table/tbody/tr[*]/td[4]/text()'))
+    # control things, i. e. caching
+    # put in here also name and links to the page!
+    last_modified = etree.Element("lastModified")
+    last_modified.text = raw_xml.xpath('/content/lastModifiedDate/@date')[0]
+    parsed_body.insert(0, last_modified)
 
-    # with that tuple in place, we can call the build function
-    # individually, however recurring to the tuple in order to get
-    # info from the correct line in the table from infopage_xml
-    return 
-# def get_list_of_plugins
+    parsed_body.insert(0, etree.Comment("""File generated on %s.
+    Corresponds to https://dev2.dariah.eu/wiki/pages/viewpage.action?pageId=%s """ 
+                                    % (datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),page_id)))
+
+    return parsed_body
+# def confluence_page_xml ends here
 
 def build_plugin_info(page_id, infopage_xml, l):
-    """By using the confluence page id, we construct the plugin object.
-    Take the page_id to query both the infopage and the individual
+    """Construct the plugin object by using the confluence page id. Take
+    the page_id to query first the infopage and then the individual
     plugin pages. l is the index of the page in the lopi tuple which
     we need to address the correct line in infopage table.
     """
@@ -317,80 +332,65 @@ def build_plugin_info(page_id, infopage_xml, l):
     # l = lopi.index(page_id)
 
     # make an object
-    tempo = PlugIn(page_id)
+    temp_plugin_object = PlugIn(page_id)
 
     for i in range(1,11):
         # this loop goes through the columns of a table line and
         # assigns the appropriate value to each plugin using double
         # slashes before the text() node to cater for the occasional p
         # tag
-        tmpx = '/pluginInfo/table/tbody/tr[%s]/td[%s]//text()' % (l + 2, i)
+        tmp_xpath = '/pluginInfo/table/tbody/tr[%s]/td[%s]//text()' % (l + 2, i)
         if i == 1:
-            tempo.plugId = infopage_xml.xpath(tmpx)[0]
+            temp_plugin_object.plugId = infopage_xml.xpath(tmp_xpath)[0]
         if i == 2:
-            tempo.name = infopage_xml.xpath(tmpx)[0]
+            temp_plugin_object.name = infopage_xml.xpath(tmp_xpath)[0]
         if i == 3:
-            tempo.category = infopage_xml.xpath(tmpx)[0]
+            temp_plugin_object.category = infopage_xml.xpath(tmp_xpath)[0]
         if i == 4:
-            tempo.pageId = infopage_xml.xpath(tmpx)[0]
+            temp_plugin_object.pageId = infopage_xml.xpath(tmp_xpath)[0]
         if i == 5:
-            tempo.featured = infopage_xml.xpath(tmpx)[0]
+            temp_plugin_object.featured = infopage_xml.xpath(tmp_xpath)[0]
         if i == 6:
-            tempo.installableUnit = infopage_xml.xpath(tmpx)[0]
+            temp_plugin_object.installableUnit = infopage_xml.xpath(tmp_xpath)[0]
         if i == 7:
-            if infopage_xml.xpath(tmpx)[0] != "\xa0":
-                tempo.owner = infopage_xml.xpath(tmpx)[0]
+            if infopage_xml.xpath(tmp_xpath)[0] != "\xa0":
+                temp_plugin_object.owner = infopage_xml.xpath(tmp_xpath)[0]
         if i == 8:
-            if infopage_xml.xpath(tmpx)[0] != "\xa0":
-                tempo.company = infopage_xml.xpath(tmpx)[0]
+            if infopage_xml.xpath(tmp_xpath)[0] != "\xa0":
+                temp_plugin_object.company = infopage_xml.xpath(tmp_xpath)[0]
         if i == 9:
-            if infopage_xml.xpath(tmpx)[0] != "\xa0":
-                tmpxhref = '/pluginInfo/table/tbody/tr[%s]/td[%s]/a/@href' % (l + 2, i)
-                tempo.companyURL = infopage_xml.xpath(tmpxhref)[0]
+            if infopage_xml.xpath(tmp_xpath)[0] != "\xa0":
+                tmp_xpath_href = '/pluginInfo/table/tbody/tr[%s]/td[%s]/a/@href' % (l + 2, i)
+                temp_plugin_object.companyURL = infopage_xml.xpath(tmp_xpath_href)[0]
         if i == 10:
-            if infopage_xml.xpath(tmpx)[0] != "\xa0":
-                tmpxhref = '/pluginInfo/table/tbody/tr[%s]/td[%s]/a/@href' % (l + 2, i)
-                tempo.updateURL = infopage_xml.xpath(tmpxhref)[0]
+            if infopage_xml.xpath(tmp_xpath)[0] != "\xa0":
+                tmp_xpath_href = '/pluginInfo/table/tbody/tr[%s]/td[%s]/a/@href' % (l + 2, i)
+                temp_plugin_object.updateURL = infopage_xml.xpath(tmp_xpath_href)[0]
 
-
+    # for speed issues, we store the wiki pages as XML files.
     cached_page = CACHE_DIR + "/" + page_id + ".xml"
     if not os.path.exists(cached_page):
-        # get additional info from the plugin info pages
-        raw_xml = get_confluence_page(page_id)
-        parsed_body = parse_confluence_body(raw_xml)
-
-        # control things, i. e. caching
-        # put in here also name and links to the page!
-        lm = etree.Element("lastModified")
-        lm.text = raw_xml.xpath('/content/lastModifiedDate/@date')[0]
-        parsed_body.insert(0, lm)
-
-        parsed_body.insert(0, etree.Comment("""File generated on %s.
-        Corresponds to https://dev2.dariah.eu/wiki/pages/viewpage.action?pageId=%s """ 
-                                        % (datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),page_id)))
-
-        writeDest = CACHE_DIR + "/" + tempo.pageId + ".xml"
-        logging.info("Writing plugin info to %s." % writeDest)
-        tree = etree.ElementTree(parsed_body)
-        tree.write(writeDest, pretty_print=True, xml_declaration=True,encoding="utf-8")
+        logging.info("Downloading %s." % page_id)
+        make_cache(page_id)
     else:
         logging.info("Using cached version of plugin info for %s." % page_id)
-        cached_page = CACHE_DIR + "/" + page_id + ".xml"
-        parsed_body = etree.parse(cached_page)
+
+    cached_page = CACHE_DIR + "/" + page_id + ".xml"
+    parsed_body = etree.parse(cached_page)
 
     # double slashes before the text() node to cater for the
     # occasional p tag
-    tempo.human_title = parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Titel"]/../td//text()')[0]
-    tempo.description = parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Beschreibung"]/../td//text()')[0]
+    temp_plugin_object.human_title = parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Titel"]/../td//text()')[0]
+    temp_plugin_object.description = parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Beschreibung"]/../td//text()')[0]
     if len(parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Lizenz"]/../td/a/@href')) != 0:
-        tempo.license = parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Lizenz"]/../td/a/@href')[0]
+        temp_plugin_object.license = parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Lizenz"]/../td/a/@href')[0]
 
     if len(parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Logo"]/../td/image/attachment/@filename')) != 0:
-        tempo.logo = parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Logo"]/../td/image/attachment/@filename')[0]
+        temp_plugin_object.logo = parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Logo"]/../td/image/attachment/@filename')[0]
     if len(parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Screenshots"]/../td/image/attachment/@filename')) != 0:
-        tempo.screenshot = parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Screenshots"]/../td/image/attachment/@filename')[0]
+        temp_plugin_object.screenshot = parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Screenshots"]/../td/image/attachment/@filename')[0]
 
-    return tempo
+    return temp_plugin_object
 # def build_plugin_info ends here
 
 ###########
@@ -423,29 +423,57 @@ def get_updates(page_id):
     should be run by a cron job or something"""
     wiki_date = get_modified_time(page_id)
     cached_date = get_cached_time(page_id)
+
+    logging.info(wiki_date)
+    logging.info(cached_date)
+
+    if wiki_date == cached_date:
+        logging.info("Nothing new on the server." % page_id)
+
     if wiki_date > cached_date:
-    # renew cache
-        get_data()
+        # renew cache for that page
+        logging.info("Online version of %s is newer that cached version. Refreshing." % page_id)
+        make_cache(page_id)
+    else:
+        logging.info("Nothing new on the server." % page_id)
 # def get_updates ends here
 
+def update_all(lopi):
+    print('Content type: text/html; charset=utf-8\n')
+    print('<html>\n<p>Updating %s files:</p>\n' % len(lopi))
+    for page in lopi:
+        print('<p>%s</p>' % page)
+        logging.debug("Do I need to update %s?" % pi)
+        get_updates(pi)
+
+    print('</html>\n')
+# def update_all ends here
 
 
-def make_cache():
+def cache_reload(lopi):
+    """Function for refreshing the cache."""
+    print('Content type: text/html; charset=utf-8\n')
+    print('<html><p>Refreshing cache.</p></html>\n')
+    logging.info("Refreshing the cache.")
+
+    for pi in lopi:
+        make_cache(pi)
+    logging.info("Refresh finished.")
+# cache_reload ends here
+
+def make_cache(page_id):
     """In order to gain additional speed, cache the data and store them on
-    the server as pickled objects
+    the server as XML files. This function downloads the page, has it
+    modified and timestamped and writes it to a file.
     """
-    # already created elsewhere
+    parsed_page = confluence_page_xml(page_id)
 
-# if newdate>olddate: get_data
-# store them as pickles?
-#
-# at the same time, there should be a function, accessible also via the cgi, to refresh the cache
-# instantaneously
-
-    pass
+    writeDest = CACHE_DIR + "/" + page_id + ".xml"
+    logging.info("Writing plugin info to %s." % writeDest)
+    tree = etree.ElementTree(parsed_page)
+    tree.write(writeDest, pretty_print=True, xml_declaration=True,encoding="utf-8")
 # make_cache ends here
     
-
 #############################################
 # Here starts the building of the XML nodes #
 #############################################
@@ -543,13 +571,13 @@ def build_mp_taxonomy(market_id, cate_id):
     return mplace
 # def build_mp_taxonomy ends here
 
-def build_mp_node_apip(plug_id):
+def build_mp_node_apip(plug_id, PLUGINS):
     """Return info on installable Unit (i.e. plugin). Get info from the
     CONFIG and from Confluence info page. Input is plug_id, identifier
     of the plugin
     """
     # this seems to do the trick, but is it a proper solution???
-    PLUGINS
+    # PLUGINS
 
     # find out which Plugin we need
     for candidate in PLUGINS:
@@ -601,7 +629,7 @@ def build_mp_node_apip(plug_id):
     return node
 # def build_mp_node_apip ends here
 
-def build_mp_frfp_apip(list_type, mark_id=CONFIG['General']['id']):
+def build_mp_frfp_apip(list_type, PLUGINS, mark_id=CONFIG['General']['id']):
     """Take those nodes (my theory here) that have a value of non-nil in
     'featured' (should be on the wiki page) and wraps them into some
     XML. Works also for recent, favorite and popular, they are
@@ -609,7 +637,7 @@ def build_mp_frfp_apip(list_type, mark_id=CONFIG['General']['id']):
     """
 
     # this seems to do the trick, but is it a proper solution???
-    PLUGINS
+    # PLUGINS
 
     # the heart of everything. This list contains the plugins to be displayed!
     # controlled by the configuration page in the wiki.
@@ -624,7 +652,7 @@ def build_mp_frfp_apip(list_type, mark_id=CONFIG['General']['id']):
     plugin_list = etree.SubElement(mplace, list_type, count=str(len(featured_list)))
     # make the nodes here as a subElement of the list
     for item in featured_list:
-        new_node = build_mp_node_apip(item)
+        new_node = build_mp_node_apip(item, PLUGINS)
         plugin_list.insert(1, new_node)
 
     return mplace
@@ -634,7 +662,7 @@ def build_mp_content_apip(plug_id):
     """Return info on a single node. The node_id is """
 
     mplace = etree.Element("marketplace")
-    new_node = build_mp_node_apip(plug_id)
+    new_node = build_mp_node_apip(plug_id, PLUGINS)
     mplace.insert(1, new_node)
 
     return mplace
@@ -643,7 +671,7 @@ def build_mp_content_apip(plug_id):
 ##########
 # Output #
 ##########
-def goto_confluence(plug_id):
+def goto_confluence(plug_id, PLUGINS):
     """Redirect the browser to the Confluence page."""
 
     for candidate in PLUGINS:
@@ -684,29 +712,48 @@ def main():
     # ws=cocoa
     # nl=de_DE
 
+    # get the list of plugins
+    # lopi: tuple of the page_ids
+    lopi, infopage_xml = get_list_of_plugins()
+
     # arguments need to be read into something that the CGI can deal with
     form = cgi.FieldStorage()
-    if form.getvalue('action') == 'main':
-        node = build_mp_apip()
-        output_xml(node)
-    if form.getvalue('action') == 'catalogs':
-        node = build_mp_cat_apip()
-        output_xml(node)
-    if form.getvalue('action') == 'taxonomy':
-        node = build_mp_taxonomy(form.getvalue('marketId'), form.getvalue('categoryId'))
-        output_xml(node)
-    # list covers all of recent, favorites, popular and featured
-    if form.getvalue('action') == 'list':
-        if form.getvalue('marketId') != None:
-            node = build_mp_frfp_apip(form.getvalue('type'), form.getvalue('marketId'))
-        else:
-            node = build_mp_frfp_apip(form.getvalue('type'))
-        output_xml(node)
-    if form.getvalue('action') == 'content':
-        node = build_mp_content_apip(form.getvalue('plugId'))
-        output_xml(node)
-    if form.getvalue('action') == 'redirect':
-        goto_confluence(form.getvalue('plugId'))
+
+    if form.getvalue('action') == 'cache_reload':
+        cache_reload(lopi)
+    if form.getvalue('action') == 'knopf':
+        cache_reload(lopi)
+    if form.getvalue('action') == 'get_updates':
+        update_all(lopi)
+
+    else:
+        # yay! Plugins!
+        PLUGINS = []
+
+        for pgid in lopi:
+            PLUGINS.append(build_plugin_info(pgid, infopage_xml, lopi.index(pgid)))
+
+        if form.getvalue('action') == 'main':
+            node = build_mp_apip()
+            output_xml(node)
+        if form.getvalue('action') == 'catalogs':
+            node = build_mp_cat_apip()
+            output_xml(node)
+        if form.getvalue('action') == 'taxonomy':
+            node = build_mp_taxonomy(form.getvalue('marketId'), form.getvalue('categoryId'))
+            output_xml(node)
+        # list covers all of recent, favorites, popular and featured
+        if form.getvalue('action') == 'list':
+            if form.getvalue('marketId') != None:
+                node = build_mp_frfp_apip(form.getvalue('type'), PLUGINS, form.getvalue('marketId'))
+            else:
+                node = build_mp_frfp_apip(form.getvalue('type'), PLUGINS)
+            output_xml(node)
+        if form.getvalue('action') == 'content':
+            node = build_mp_content_apip(form.getvalue('plugId'))
+            output_xml(node)
+        if form.getvalue('action') == 'redirect':
+            goto_confluence(form.getvalue('plugId'), PLUGINS)
 
     # I think, node can be redirected to content. Did so in htaccess file.
     # if form.getvalue('action') == 'node':
@@ -714,21 +761,8 @@ def main():
 
     # really bad error handling, but search functionality has been disabled:
     # search_tab = etree.SubElement(wizard,"searchtab",enabled="0").text = "Search"
-    if form.getvalue('action') == 'search':
-        node = "not yet implemented"
-
-# what is the best place to put this??
-# get the XML of the infopage and store it in memory
-infopage_xml = get_confluence_config()
-# create immutable tuple of the page_ids, because we need to deal
-# with positional stuff in that list lateron. lopi means of course
-# list of plugins
-lopi = tuple(infopage_xml.xpath('/pluginInfo/table/tbody/tr[*]/td[4]/text()'))
-
-# yay! Plugins!
-PLUGINS = []
-for pgid in lopi:
-    PLUGINS.append(build_plugin_info(pgid, infopage_xml, lopi.index(pgid)))
+    # if form.getvalue('action') == 'search':
+    #     node = "not yet implemented"
 
 if __name__ == "__main__":
     main()

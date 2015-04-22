@@ -36,3 +36,14 @@ Testing the installation
 <server address>/cgi-bin/msInterface.cgi?action=main
 should give you a valid answer
 <server address>/tgmpl/api/p should do that as well
+
+Functionality
+For speed issues, the results from the wiki are cached. The cache can
+be reloaded with the url argument
+<server address>/cgi-bin/msInterface.cgi?action=cache_reload
+
+Encoding issues
+There is an encoding issue depending on the platform the system is
+running on. For this reason, there is a list of server names in the
+source code where the hostname should be added if you encounter such
+problems.
