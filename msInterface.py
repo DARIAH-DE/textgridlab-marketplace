@@ -576,8 +576,6 @@ def build_mp_node_apip(plug_id, PLUGINS):
     CONFIG and from Confluence info page. Input is plug_id, identifier
     of the plugin
     """
-    # this seems to do the trick, but is it a proper solution???
-    # PLUGINS
 
     # find out which Plugin we need
     for candidate in PLUGINS:
@@ -634,19 +632,21 @@ def build_mp_frfp_apip(list_type, PLUGINS, mark_id=CONFIG['General']['id']):
     'featured' (should be on the wiki page) and wraps them into some
     XML. Works also for recent, favorite and popular, they are
     similar. Hence the name of this function.
-    """
 
-    # this seems to do the trick, but is it a proper solution???
-    # PLUGINS
+    This one needs to be fleshed out!
+    """
 
     # the heart of everything. This list contains the plugins to be displayed!
     # controlled by the configuration page in the wiki.
     featured_list = []
 
     # find out which Plugin we need
+    # for now, just display all
     for candidate in PLUGINS:
-        if candidate.featured != "N":
-            featured_list.append(candidate.plugId)
+        featured_list.append(candidate.plugId)
+        # if candidate.featured != "N":
+        #     # featured_list.append(candidate.plugId)
+
 
     mplace = etree.Element("marketplace")
     plugin_list = etree.SubElement(mplace, list_type, count=str(len(featured_list)))
@@ -658,7 +658,7 @@ def build_mp_frfp_apip(list_type, PLUGINS, mark_id=CONFIG['General']['id']):
     return mplace
 # def build_mp_frfp_apip ends here
 
-def build_mp_content_apip(plug_id):
+def build_mp_content_apip(plug_id, PLUGINS):
     """Return info on a single node. The node_id is """
 
     mplace = etree.Element("marketplace")
@@ -750,7 +750,7 @@ def main():
                 node = build_mp_frfp_apip(form.getvalue('type'), PLUGINS)
             output_xml(node)
         if form.getvalue('action') == 'content':
-            node = build_mp_content_apip(form.getvalue('plugId'))
+            node = build_mp_content_apip(form.getvalue('plugId'), PLUGINS)
             output_xml(node)
         if form.getvalue('action') == 'redirect':
             goto_confluence(form.getvalue('plugId'), PLUGINS)
