@@ -1,5 +1,8 @@
-Options +FollowSymLinks
+AddDefaultCharset UTF-8
+SetEnv PYTHONIOENCODING utf8
+Options FollowSymLinks ExecCGI
 RewriteEngine On
+
 RewriteRule ^api/p$ http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-bin/msInterface.cgi?action=main
 RewriteRule ^catalogs/api/p$ http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-bin/msInterface.cgi?action=catalogs
 RewriteRule ^taxonomy/term/(.*?),(.*?)/api/p http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-bin/msInterface.cgi?action=taxonomy&marketId=$1&categoryId=$2
@@ -10,6 +13,7 @@ RewriteRule ^favorites/top/api/p$ http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-b
 RewriteRule ^popular/top/api/p$ http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-bin/msInterface.cgi?action=list&type=popular
 RewriteRule ^node/(.*?)/api/p$ http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-bin/msInterface.cgi?action=content&plugId=$1
 RewriteRule ^content/(.*?)/api/p$ http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-bin/msInterface.cgi?action=content&plugId=$1
-
 RewriteRule ^content/(.*?)$ http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-bin/msInterface.cgi?action=redirect&plugId=$1
-ReWriteRule ^$ https://dev2.dariah.eu/wiki/pages/viewpage.action?pageId=8130167
+
+ReWriteRule ^$ http://ocropus.rz-berlin.mpg.de/~kthoden/cgi-bin/msInterface.cgi?action=goto_wiki
+

@@ -51,7 +51,7 @@ Some new stuff:
 
 """
 __author__ = "Klaus Thoden, kthoden@mpiwg-berlin.mpg.de"
-__date__ = "2015-02-13"
+__date__ = "2015-04-24"
 
 ###########
 # Imports #
@@ -60,9 +60,7 @@ from lxml import etree
 from datetime import datetime
 import configparser
 import logging
-logging.basicConfig(filename='msInterface.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 import cgi
-
 import os
 
 # had some big problems with getting the encoding right
@@ -74,7 +72,7 @@ import locale
 import sys
 import socket
 # list of servers we are working on
-servers = ("ocropus", "textgrid-esx2")
+servers = ("ocropus", "textgrid-esx2", "textgrid-esx1")
 if socket.gethostname() in servers:
     locale.getpreferredencoding = lambda: 'UTF-8'
     # Re-open standard files in UTF-8 mode.
@@ -82,18 +80,43 @@ if socket.gethostname() in servers:
     sys.stdout = open('/dev/stdout', 'w')
     sys.stderr = open('/dev/stderr', 'w')
 
+# setting up things
 # both config and cache directory are in the same place as this script
 CONFIG = configparser.ConfigParser()
 CONFIG.read("ms.conf")
 
-CACHE_DIR = CONFIG['General']['cache_dir']
+LOGFILE = CONFIG['General']['logfile']
+LOGLEVEL = CONFIG['General']['loglevel']
 
+numeric_level = getattr(logging, LOGLEVEL.upper(), None)
+if not isinstance(numeric_level, int):
+    raise ValueError('Invalid log level: %s' % loglevel)
+logging.basicConfig(filename=LOGFILE, level=numeric_level, format='%(asctime)s - %(levelname)s - %(message)s')
+
+CACHE_DIR = CONFIG['General']['cache_dir']
 if not os.path.exists(CACHE_DIR):
     os.mkdir(os.path.expanduser(CACHE_DIR))
+
+WIKI_VIEW = CONFIG['General']['wiki_view']
 
 ###########
 # Objects #
 ###########
+class TGLab():
+    """Class for storing information about the Lab that sent the query.
+    # We should maybe catch and retain all those things the client tells us:
+    # product=info.textgrid.lab.core.application.base_product
+    # os=macosx
+    # runtime.version=3.7.0.v20110110
+    # client=org.eclipse.epp.mpc.core
+    # java.version=1.6.0_65
+    # product.version=0.0.2.201310011243
+    # ws=cocoa
+    # nl=de_DE
+"""
+    pass
+# class TGLab ends here
+
 class PlugIn():
     """Class for Plugins, just to collect their properties. Has one
     required positional argument, the confluence pageId."""
@@ -111,8 +134,8 @@ class PlugIn():
                  screenshot = "",
                  owner = CONFIG['General']['company'],
                  company = CONFIG['General']['company'],
-                 companyURL = CONFIG['General']['companyUrl'],
-                 updateURL = CONFIG['General']['updateUrl']):
+                 company_url = CONFIG['General']['company_url'],
+                 update_url = CONFIG['General']['update_url']):
         self.human_title = human_title
         self.description = description
         self.logo = logo
@@ -126,13 +149,13 @@ class PlugIn():
         self.installableUnit = installableUnit
         self.owner = owner
         self.company = company
-        self.companyURL = companyURL
-        self.updateURL = updateURL
+        self.company_url = company_url
+        self.update_url = update_url
 # class PlugIn ends here
 
 class MarketPlace():
     """Why not have that, too"""
-    def __init__(self, human_title, desc, mpid, name, url, icon, company, company_url, update_url):
+    def __init__(self, human_title, desc, mpid, name, url, icon, company, company_url, update_url, main_wiki_page):
         self.human_title = human_title
         self.desc = desc
         self.mpid = mpid
@@ -142,12 +165,7 @@ class MarketPlace():
         self.company = company
         self.company_url = company_url
         self.update_url = update_url
-
-    # should be configurable, too!
-    # search_tab = etree.SubElement(wizard, "searchtab", enabled="0").text = "Search"
-    # pop_tab = etree.SubElement(wizard, "populartab", enabled="1").text = "Popular"
-    # rec_tab = etree.SubElement(wizard, "recenttab", enabled="0").text = "Recent"
-
+        self.main_wiki_page = main_wiki_page
 # class MarketPlace ends here
 
 # create Marketplace object
@@ -159,8 +177,9 @@ MPLACE = MarketPlace(
     CONFIG['General']['url'],
     CONFIG['General']['icon'],
     CONFIG['General']['company'],
-    CONFIG['General']['companyUrl'],
-    CONFIG['General']['updateUrl'])
+    CONFIG['General']['company_url'],
+    CONFIG['General']['update_url'],
+    CONFIG['General']['main_wiki_page'])
 
 #################
 # Small helpers #
@@ -228,7 +247,7 @@ def get_confluence_config():
     https://dev2.dariah.eu/wiki/rest/prototype/1/content/36342854.
     Return a neatly formatted XML file containing a table.
     """
-    info_site = CONFIG['General']['pluginInfo']
+    info_site = CONFIG['General']['plugin_info']
 
     plugin_info = get_confluence_page(info_site)
     table = parse_confluence_body(plugin_info)
@@ -265,7 +284,7 @@ def get_confluence_page(confluence_page_id):
 
     try:
         logging.info("Querying %s for data" % fullpath)
-        logging.info("This corrensponds to https://dev2.dariah.eu/wiki/pages/viewpage.action?pageId=%s" % str(confluence_page_id))
+        logging.info("This corrensponds to %s%s" % (WIKI_VIEW, str(confluence_page_id)))
         plugin_info = etree.parse(usock)
     except etree.XMLSyntaxError:
         logging.error("Retrieved XML syntax error.")
@@ -315,8 +334,7 @@ def confluence_page_xml(page_id):
     parsed_body.insert(0, last_modified)
 
     parsed_body.insert(0, etree.Comment("""File generated on %s.
-    Corresponds to https://dev2.dariah.eu/wiki/pages/viewpage.action?pageId=%s """ 
-                                    % (datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),page_id)))
+    Corresponds to %s%s """ % (datetime.now().strftime("%Y-%m-%dT%H:%M:%S"), WIKI_VIEW, page_id)))
 
     return parsed_body
 # def confluence_page_xml ends here
@@ -361,11 +379,11 @@ def build_plugin_info(page_id, infopage_xml, l):
         if i == 9:
             if infopage_xml.xpath(tmp_xpath)[0] != "\xa0":
                 tmp_xpath_href = '/pluginInfo/table/tbody/tr[%s]/td[%s]/a/@href' % (l + 2, i)
-                temp_plugin_object.companyURL = infopage_xml.xpath(tmp_xpath_href)[0]
+                temp_plugin_object.company_url = infopage_xml.xpath(tmp_xpath_href)[0]
         if i == 10:
             if infopage_xml.xpath(tmp_xpath)[0] != "\xa0":
                 tmp_xpath_href = '/pluginInfo/table/tbody/tr[%s]/td[%s]/a/@href' % (l + 2, i)
-                temp_plugin_object.updateURL = infopage_xml.xpath(tmp_xpath_href)[0]
+                temp_plugin_object.update_url = infopage_xml.xpath(tmp_xpath_href)[0]
 
     # for speed issues, we store the wiki pages as XML files.
     cached_page = CACHE_DIR + "/" + page_id + ".xml"
@@ -474,6 +492,15 @@ def make_cache(page_id):
     tree.write(writeDest, pretty_print=True, xml_declaration=True,encoding="utf-8")
 # make_cache ends here
     
+#############
+# Searching #
+#############
+def search_files():
+    """Search the text nodes of all plugins. If search string is found,
+    return that node."""
+
+# search_files ends here
+
 #############################################
 # Here starts the building of the XML nodes #
 #############################################
@@ -493,12 +520,13 @@ def build_mp_apip():
     # Iterating through the categories
     cat_count = 1
     for cat_key, cat_val in zip(categ, cat_id):
-        # is the space after mpid+","+cat_key) obliatory???
+        # is the space after mpid+","+cat_key) obligatory???
         etree.SubElement(market, "category", 
                          count=str(cat_count), 
                          id=cat_val, 
                          name=cat_key, 
-                         url=str(MPLACE.url) + "taxonomy/term/" + MPLACE.mpid + ", " + cat_key)
+                         url=str(MPLACE.url) + "taxonomy/term/" + MPLACE.mpid + "," + cat_key)
+                         # url=str(MPLACE.url) + "taxonomy/term/" + MPLACE.mpid + ", " + cat_key)
         cat_count += 1
     return mplace
 # def build_mp_apip ends here
@@ -538,7 +566,7 @@ def build_mp_cat_apip():
     return mplace
 # def build_mp_cat_apip ends here
 
-def build_mp_taxonomy(market_id, cate_id):
+def build_mp_taxonomy(market_id, cate_id, PLUGINS):
     """Construct the taxonomy. List all plugins of one category. The
     category a plugin belongs to is taken from the config."""
 
@@ -556,7 +584,9 @@ def build_mp_taxonomy(market_id, cate_id):
     category = etree.SubElement(mplace, "category", 
                                 id=str(cate_id), 
                                 name=(cate_dict[cate_id]), 
-                                url=MPLACE.url + "taxonomy/term/" + str(market_id) + ", " + str(cate_id))
+                                # space obligatory?
+                                url=MPLACE.url + "taxonomy/term/" + str(market_id) + "," + str(cate_id))
+                                # url=MPLACE.url + "taxonomy/term/" + str(market_id) + ", " + str(cate_id))
 
     # repeat for those belonging to the same group
     for iu in PLUGINS:
@@ -607,7 +637,7 @@ def build_mp_node_apip(plug_id, PLUGINS):
     fav_element = etree.SubElement(node, "favorited").text = "0"
     # 1 is original value here
     foundation_element = etree.SubElement(node, "foundationmember").text = "1"
-    url_element = etree.SubElement(node, "homepageurl").text = etree.CDATA(current_plugin.companyURL)
+    url_element = etree.SubElement(node, "homepageurl").text = etree.CDATA(current_plugin.company_url)
     # icon of plugin
     image_element = etree.SubElement(node, "image").text = etree.CDATA("https://dev2.dariah.eu/wiki/download/attachments/" + current_plugin.pageId + "/" + current_plugin.logo)
     # just a container
@@ -623,7 +653,7 @@ def build_mp_node_apip(plug_id, PLUGINS):
     if len(current_plugin.screenshot) != 0:
         scrshotEle = etree.SubElement(node, "screenshot").text = etree.CDATA("https://dev2.dariah.eu/wiki/download/attachments/" + current_plugin.pageId + "/" + current_plugin.screenshot)
     # also hidden field?
-    update_element = etree.SubElement(node, "updateurl").text = etree.CDATA(current_plugin.updateURL)
+    update_element = etree.SubElement(node, "updateurl").text = etree.CDATA(current_plugin.update_url)
     return node
 # def build_mp_node_apip ends here
 
@@ -678,7 +708,17 @@ def goto_confluence(plug_id, PLUGINS):
         if candidate.plugId == plug_id:
             goto_page = candidate.pageId
 
-    goto_url = "https://dev2.dariah.eu/wiki/pages/viewpage.action?pageId=" + goto_page
+    goto_url = WIKI_VIEW + goto_page
+
+    print('Status: 303 See Other')
+    # newline is important here
+    print('Location: ' + goto_url + '\n')
+# def goto_confluence ends here
+
+def goto_main_page(main_page):
+    """Redirect the browser to the Confluence page. Doubling code is not good!"""
+
+    goto_url = WIKI_VIEW + main_page
 
     print('Status: 303 See Other')
     # newline is important here
@@ -702,15 +742,6 @@ def output_xml(node):
 ################
 def main():
     """Parse what is received by the URL and ship it out to the relevant channel."""
-    # We should maybe catch and retain all those things the client tells us:
-    # product=info.textgrid.lab.core.application.base_product
-    # os=macosx
-    # runtime.version=3.7.0.v20110110
-    # client=org.eclipse.epp.mpc.core
-    # java.version=1.6.0_65
-    # product.version=0.0.2.201310011243
-    # ws=cocoa
-    # nl=de_DE
 
     # get the list of plugins
     # lopi: tuple of the page_ids
@@ -740,7 +771,7 @@ def main():
             node = build_mp_cat_apip()
             output_xml(node)
         if form.getvalue('action') == 'taxonomy':
-            node = build_mp_taxonomy(form.getvalue('marketId'), form.getvalue('categoryId'))
+            node = build_mp_taxonomy(form.getvalue('marketId'), form.getvalue('categoryId'), PLUGINS)
             output_xml(node)
         # list covers all of recent, favorites, popular and featured
         if form.getvalue('action') == 'list':
@@ -754,10 +785,8 @@ def main():
             output_xml(node)
         if form.getvalue('action') == 'redirect':
             goto_confluence(form.getvalue('plugId'), PLUGINS)
-
-    # I think, node can be redirected to content. Did so in htaccess file.
-    # if form.getvalue('action') == 'node':
-    #     node = "not yet implemented"
+        if form.getvalue('action') == 'goto_wiki':
+            goto_main_page(MPLACE.main_wiki_page)
 
     # really bad error handling, but search functionality has been disabled:
     # search_tab = etree.SubElement(wizard,"searchtab",enabled="0").text = "Search"
