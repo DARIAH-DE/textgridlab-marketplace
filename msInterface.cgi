@@ -467,7 +467,6 @@ def update_all(lopi):
     print('</html>\n')
 # def update_all ends here
 
-
 def cache_reload(lopi):
     """Function for refreshing the cache."""
     print('Content type: text/html; charset=utf-8\n')
@@ -495,11 +494,60 @@ def make_cache(page_id):
 #############
 # Searching #
 #############
-def search_files():
-    """Search the text nodes of all plugins. If search string is found,
-    return that node."""
+def search_files(search_string, lopi):
+    """Search the text nodes of all plugins using the unquoted form of the
+    search string that came in by URL. If search string is found, add
+    to a list and return the list of plugin_ids that contain the
+    search term.
 
+
+GET /~kthoden/m3/api/p/search/apachesolr_search/k%C3%B6nnen?filters=tid:tg0120%20tid:5&product=info.textgrid.lab.core.application.base_product&platform.version=4.4.2.v20150204-1700&os=macosx&java.version=1.8.0_31&client=org.eclipse.epp.mpc.core&product.version=0.0.3.201503251333&runtime.version=3.10.0.v20140318-2214&ws=cocoa&nl=de_DE HTTP/1.1" 302 666 "-" "Apache-HttpClient/4.3.6 (java 1.5)"
+ 
+    Filters need to be done!
+
+   """
+
+    import urllib.parse
+
+    # list of successful hits
+    hits = []
+
+    # sanitize search string
+    sanitized_search_string = urllib.parse.unquote_plus(search_string)
+    # get all cached files
+    for plugin_id in lopi:
+        cached_page = CACHE_DIR + "/" + plugin_id + ".xml"
+        # collect text nodes
+        textnodes = collect_text_nodes(cached_page)
+        # search string
+        if sanitized_search_string.lower() in textnodes.lower():
+            hits.append(plugin_id)
+
+    return hits
 # search_files ends here
+
+def collect_text_nodes(cached_file):
+    """Collect the text nodes and put them in one string."""
+    from lxml import etree
+    import re
+    
+    result = ""
+
+    XML = etree.parse(cached_file)
+    textnodes = XML.findall(".//td")
+
+    for node in textnodes:
+        # search only strings (not NoneType)
+        if type(node.text) != str:
+            continue
+        # also, just go on if you find empty nodes
+        if re.match(r'\n +', node.text):
+            continue
+        result += node.text
+        # add space between text strings
+        result += " "
+    return result
+# collect_text_nodes ends here
 
 #############################################
 # Here starts the building of the XML nodes #
@@ -698,6 +746,28 @@ def build_mp_content_apip(plug_id, PLUGINS):
     return mplace
 # def build_mp_content_apip ends here
 
+def build_mp_search_apip(search_string, lopi, PLUGINS):
+    """Return nodes matching a search string."""
+    # this is a list
+    found_plugins = search_files(search_string, lopi)
+
+    mplace = etree.Element("marketplace")
+    # part of the specification is also an attribute URL (as in url = "http://what.is.th.is")
+    # not sure what that is used for. But works also without.
+    search = etree.SubElement(mplace, "search", term = search_string, count = str(len(found_plugins)))
+
+    # make the nodes here as a subElement of the list
+    for item in found_plugins:
+        # ugly here:
+        for plugin in PLUGINS:
+            if item == plugin.pageId:
+                plugin_id = plugin.plugId
+        new_node = build_mp_node_apip(plugin_id, PLUGINS)
+        search.insert(1, new_node)
+
+    return mplace
+# def build_mp_search_apip ends here
+
 ##########
 # Output #
 ##########
@@ -783,6 +853,10 @@ def main():
         if form.getvalue('action') == 'content':
             node = build_mp_content_apip(form.getvalue('plugId'), PLUGINS)
             output_xml(node)
+        if form.getvalue('action') == 'search':
+            node = build_mp_search_apip(form.getvalue('query'), lopi, PLUGINS)
+            output_xml(node)
+
         if form.getvalue('action') == 'redirect':
             goto_confluence(form.getvalue('plugId'), PLUGINS)
         if form.getvalue('action') == 'goto_wiki':
@@ -790,8 +864,6 @@ def main():
 
     # really bad error handling, but search functionality has been disabled:
     # search_tab = etree.SubElement(wizard,"searchtab",enabled="0").text = "Search"
-    # if form.getvalue('action') == 'search':
-    #     node = "not yet implemented"
 
 if __name__ == "__main__":
     main()
