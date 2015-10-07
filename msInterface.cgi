@@ -505,6 +505,14 @@ GET /~kthoden/m3/api/p/search/apachesolr_search/k%C3%B6nnen?filters=tid:tg0120%2
  
     Filters need to be done!
 
+/apachesolr_search/k%C3%B6nnen?filters=tid:tg0120%20tid:5&product=
+nur MS ausgewählt
+/~kthoden/m3/api/p/search/apachesolr_search/musik?filters=tid:tg0120&product=info
+nur Kategorie
+/~kthoden/m3/api/p/search/apachesolr_search/musik?filters=tid:5&produc
+beide
+/~kthoden/m3/api/p/search/apachesolr_search/musik?filters=tid:tg0120%20tid:5&produ
+
    """
 
     import urllib.parse

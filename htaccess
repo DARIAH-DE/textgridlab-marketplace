@@ -12,6 +12,7 @@ RewriteRule ^recent/api/p$ <INSERT URL HERE>/cgi-bin/msInterface.cgi?action=list
 RewriteRule ^favorites/top/api/p$ <INSERT URL HERE>/cgi-bin/msInterface.cgi?action=list&type=favorites
 RewriteRule ^popular/top/api/p$ <INSERT URL HERE>/cgi-bin/msInterface.cgi?action=list&type=popular
 RewriteRule ^node/(.*?)/api/p$ <INSERT URL HERE>/cgi-bin/msInterface.cgi?action=content&plugId=$1
+#RewriteRule ^api/p/search/apachesolr_search/(.*?)\?filters=(.*?)$ <INSERT URL HERE>/cgi-bin/msInterface.cgi?action=search&query=$1&filter=$2
 RewriteRule ^api/p/search/apachesolr_search/(.*?)$ <INSERT URL HERE>/cgi-bin/msInterface.cgi?action=search&query=$1
 RewriteRule ^content/(.*?)/api/p$ <INSERT URL HERE>/cgi-bin/msInterface.cgi?action=content&plugId=$1
 RewriteRule ^content/(.*?)$ <INSERT URL HERE>/cgi-bin/msInterface.cgi?action=redirect&plugId=$1
