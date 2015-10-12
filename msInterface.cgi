@@ -15,9 +15,6 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-# Tips von Thorsten
-# ans Monitoring anschließen: wenn die Anfrage OK zurückkommt, dann läufts ok
-
 """A Python CGI webservice to provide marketplace functionality for
 TextGridLab/Eclipse.
 
@@ -51,7 +48,7 @@ Some new stuff:
 
 """
 __author__ = "Klaus Thoden, kthoden@mpiwg-berlin.mpg.de"
-__date__ = "2015-04-24"
+__date__ = "2015-10-12"
 
 ###########
 # Imports #
@@ -568,7 +565,7 @@ def build_mp_apip():
     market = etree.SubElement(mplace, "market", 
                               id=MPLACE.mpid, 
                               name=MPLACE.name, 
-                              url=MPLACE.url + "category/markets/" + MPLACE.mpid)
+                              url=MPLACE.url + "/category/markets/" + MPLACE.mpid)
 
     categ = list(CONFIG['Categories'].values())
     cat_id = list(CONFIG['Categories'].keys())
@@ -576,13 +573,13 @@ def build_mp_apip():
     # Iterating through the categories
     cat_count = 1
     for cat_key, cat_val in zip(categ, cat_id):
-        # is the space after mpid+","+cat_key) obligatory???
         etree.SubElement(market, "category", 
                          count=str(cat_count), 
                          id=cat_val, 
                          name=cat_key, 
-                         url=str(MPLACE.url) + "taxonomy/term/" + MPLACE.mpid + "," + cat_key)
-                         # url=str(MPLACE.url) + "taxonomy/term/" + MPLACE.mpid + ", " + cat_key)
+                         url=str(MPLACE.url) + "/taxonomy/term/" + MPLACE.mpid + "," + cat_key)
+                         # is the space after mpid+","+cat_key) obligatory???
+                         # url=str(MPLACE.url) + "/taxonomy/term/" + MPLACE.mpid + ", " + cat_key)
         cat_count += 1
     return mplace
 # def build_mp_apip ends here
@@ -600,7 +597,7 @@ def build_mp_cat_apip():
                                title=MPLACE.human_title, 
                                url=MPLACE.url, 
                                selfContained="1", 
-                               icon=MPLACE.url + MPLACE.icon)
+                               icon=MPLACE.url + "/" + MPLACE.icon)
     desc = etree.SubElement(catalog, "description").text = MPLACE.desc
     dep_rep = etree.SubElement(catalog, "dependenciesRepository")
     wizard = etree.SubElement(catalog, "wizard", title="")
@@ -640,9 +637,9 @@ def build_mp_taxonomy(market_id, cate_id, PLUGINS):
     category = etree.SubElement(mplace, "category", 
                                 id=str(cate_id), 
                                 name=(cate_dict[cate_id]), 
-                                # space obligatory?
-                                url=MPLACE.url + "taxonomy/term/" + str(market_id) + "," + str(cate_id))
-                                # url=MPLACE.url + "taxonomy/term/" + str(market_id) + ", " + str(cate_id))
+                                url=MPLACE.url + "/taxonomy/term/" + str(market_id) + "," + str(cate_id))
+                                # is the space after mpid+","+cat_key) obligatory???
+                                # url=MPLACE.url + "/taxonomy/term/" + str(market_id) + ", " + str(cate_id))
 
     # repeat for those belonging to the same group
     for iu in PLUGINS:
@@ -650,7 +647,7 @@ def build_mp_taxonomy(market_id, cate_id, PLUGINS):
             node = etree.SubElement(category, "node",
                                     id = iu.plugId,
                                     name = iu.human_title,
-                                    url = MPLACE.url + "content/" + iu.plugId)
+                                    url = MPLACE.url + "/content/" + iu.plugId)
             # do something about this!!
             fav = etree.SubElement(category, "favorited").text = "0"
 
@@ -671,7 +668,7 @@ def build_mp_node_apip(plug_id, PLUGINS):
     node = etree.Element("node", 
                          id = current_plugin.plugId,
                          name = current_plugin.human_title,
-                         url = MPLACE.url + "content/" + current_plugin.plugId)
+                         url = MPLACE.url + "/content/" + current_plugin.plugId)
 
     body_element = etree.SubElement(node, "body").text = etree.CDATA(current_plugin.description)
     # taken from Label of wikipage
@@ -680,7 +677,7 @@ def build_mp_node_apip(plug_id, PLUGINS):
     category = etree.SubElement(cate_element, "categories",
                                 id = current_plugin.category,
                                 name = current_plugin.human_title,
-                                url = MPLACE.url + "taxonomy/term/" + MPLACE.mpid + "," + current_plugin.category)
+                                url = MPLACE.url + "/taxonomy/term/" + MPLACE.mpid + "," + current_plugin.category)
     # how to do that?
     change_element = etree.SubElement(node, "changed").text = "0"
     # constantly TextGrid? can be superseded by plugin-specific entry
@@ -869,9 +866,6 @@ def main():
             goto_confluence(form.getvalue('plugId'), PLUGINS)
         if form.getvalue('action') == 'goto_wiki':
             goto_main_page(MPLACE.main_wiki_page)
-
-    # really bad error handling, but search functionality has been disabled:
-    # search_tab = etree.SubElement(wizard,"searchtab",enabled="0").text = "Search"
 
 if __name__ == "__main__":
     main()
