@@ -68,8 +68,8 @@ import os
 import locale
 import sys
 import socket
-# list of servers we are working on
-servers = ("ocropus", "textgrid-esx2", "textgrid-esx1")
+# list of servers we are working on. Seems to depend on login shell
+servers = ("ocropus", "textgrid-esx1")
 if socket.gethostname() in servers:
     locale.getpreferredencoding = lambda: 'UTF-8'
     # Re-open standard files in UTF-8 mode.
