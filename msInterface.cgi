@@ -48,7 +48,7 @@ Some new stuff:
 
 """
 __author__ = "Klaus Thoden, kthoden@mpiwg-berlin.mpg.de"
-__date__ = "2015-10-12"
+__date__ = "2016-09-22"
 
 ###########
 # Imports #
@@ -95,6 +95,10 @@ if not os.path.exists(CACHE_DIR):
     os.mkdir(os.path.expanduser(CACHE_DIR))
 
 WIKI_VIEW = CONFIG['General']['wiki_view']
+
+# adaptable XPath for info that is parsed out of the confluence page
+# was /pluginInfo/table/
+PLUGIN_INFO_TABLE_XPATH = "/pluginInfo//table[1]/"
 
 ###########
 # Objects #
@@ -259,7 +263,7 @@ def get_list_of_plugins():
 
     # create immutable tuple of the page_ids, because we need to deal
     # with positional stuff in that list lateron
-    lopi = tuple(infopage_xml.xpath('/pluginInfo/table/tbody/tr[*]/td[4]/text()'))
+    lopi = tuple(infopage_xml.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr[*]/td[4]/text()'))
 
     # with that tuple in place, we can call the build function
     # individually, however recurring to the tuple in order to get
@@ -308,13 +312,17 @@ def parse_confluence_body(returned_xml):
     clean = reverse_tags(plugin_body)
     clean = unescape(clean)
 
-    body_xml = etree.fromstring(clean)
+    # recent developments (2016-09-22) made changes to the XML format
+
+    sanitized_body = "<pluginInfo>" + clean + "</pluginInfo>"
+
+    body_xml = etree.fromstring(sanitized_body)
 
     # for sanity's sake we wrap this again in an XML element
-    parsed_body = etree.Element("pluginInfo")
-    parsed_body.append(body_xml)
+    # parsed_body = etree.Element("pluginInfo")
+    # parsed_body.append(body_xml)
 
-    return parsed_body
+    return body_xml
 ## def parse_confluence_body ends here
 
 def confluence_page_xml(page_id):
@@ -354,7 +362,7 @@ def build_plugin_info(page_id, infopage_xml, l):
         # assigns the appropriate value to each plugin using double
         # slashes before the text() node to cater for the occasional p
         # tag
-        tmp_xpath = '/pluginInfo/table/tbody/tr[%s]/td[%s]//text()' % (l + 2, i)
+        tmp_xpath = PLUGIN_INFO_TABLE_XPATH + 'tbody/tr[%s]/td[%s]//text()' % (l + 2, i)
         if i == 1:
             temp_plugin_object.plugId = infopage_xml.xpath(tmp_xpath)[0]
         if i == 2:
@@ -375,11 +383,11 @@ def build_plugin_info(page_id, infopage_xml, l):
                 temp_plugin_object.company = infopage_xml.xpath(tmp_xpath)[0]
         if i == 9:
             if infopage_xml.xpath(tmp_xpath)[0] != "\xa0":
-                tmp_xpath_href = '/pluginInfo/table/tbody/tr[%s]/td[%s]/a/@href' % (l + 2, i)
+                tmp_xpath_href = PLUGIN_INFO_TABLE_XPATH + 'tbody/tr[%s]/td[%s]/a/@href' % (l + 2, i)
                 temp_plugin_object.company_url = infopage_xml.xpath(tmp_xpath_href)[0]
         if i == 10:
             if infopage_xml.xpath(tmp_xpath)[0] != "\xa0":
-                tmp_xpath_href = '/pluginInfo/table/tbody/tr[%s]/td[%s]/a/@href' % (l + 2, i)
+                tmp_xpath_href = PLUGIN_INFO_TABLE_XPATH + 'tbody/tr[%s]/td[%s]/a/@href' % (l + 2, i)
                 temp_plugin_object.update_url = infopage_xml.xpath(tmp_xpath_href)[0]
 
     # for speed issues, we store the wiki pages as XML files.
@@ -395,15 +403,15 @@ def build_plugin_info(page_id, infopage_xml, l):
 
     # double slashes before the text() node to cater for the
     # occasional p tag
-    temp_plugin_object.human_title = parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Titel"]/../td//text()')[0]
-    temp_plugin_object.description = parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Beschreibung"]/../td//text()')[0]
-    if len(parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Lizenz"]/../td/a/@href')) != 0:
-        temp_plugin_object.license = parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Lizenz"]/../td/a/@href')[0]
+    temp_plugin_object.human_title = parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Titel"]/../td//text()')[0]
+    temp_plugin_object.description = parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Beschreibung"]/../td//text()')[0]
+    if len(parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Lizenz"]/../td/a/@href')) != 0:
+        temp_plugin_object.license = parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Lizenz"]/../td/a/@href')[0]
 
-    if len(parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Logo"]/../td/image/attachment/@filename')) != 0:
-        temp_plugin_object.logo = parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Logo"]/../td/image/attachment/@filename')[0]
-    if len(parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Screenshots"]/../td/image/attachment/@filename')) != 0:
-        temp_plugin_object.screenshot = parsed_body.xpath('/pluginInfo/table/tbody/tr/th[text()="Screenshots"]/../td/image/attachment/@filename')[0]
+    if len(parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Logo"]/../td/image/attachment/@filename')) != 0:
+        temp_plugin_object.logo = parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Logo"]/../td/image/attachment/@filename')[0]
+    if len(parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Screenshots"]/../td/image/attachment/@filename')) != 0:
+        temp_plugin_object.screenshot = parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Screenshots"]/../td/image/attachment/@filename')[0]
 
     return temp_plugin_object
 # def build_plugin_info ends here
