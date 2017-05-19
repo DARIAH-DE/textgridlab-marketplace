@@ -102,6 +102,8 @@ WIKI_VIEW = CONFIG['General']['wiki_view']
 # was /pluginInfo/table/
 PLUGIN_INFO_TABLE_XPATH = "/pluginInfo//table[1]/"
 
+HEADERLINE = 'Content-Type: text/%s; charset=utf-8\n'
+
 ###########
 # Objects #
 ###########
@@ -464,7 +466,7 @@ def get_updates(page_id):
 # def get_updates ends here
 
 def update_all(lopi):
-    print('Content-Type: text/html; charset=utf-8\n')
+    print(HEADERLINE % 'html')
     print('<html>\n<p>Updating %s files:</p>\n' % len(lopi))
     for page in lopi:
         print('<p>%s</p>' % page)
@@ -476,7 +478,7 @@ def update_all(lopi):
 
 def cache_reload(lopi):
     """Function for refreshing the cache."""
-    print('Content-Type: text/html; charset=utf-8\n')
+    print(HEADERLINE % 'html')
     print('<html><p>Refreshing cache.</p></html>\n')
     logging.info("Refreshing the cache.")
 
@@ -488,7 +490,8 @@ def cache_reload(lopi):
 def debug():
     """Function for refreshing the cache."""
     logging.info("Debugging! We are on machine %s." % socket.gethostname())
-    print('Content-Type: text/html; charset=utf-8\n\n')
+    # print('Content-Type: text/html; charset=utf-8\n')
+    print(HEADERLINE % 'html')
     print('<html><p>Do you see me? Þau grafa sum fræin niður til síðari nota en geta þó gleymt þeim. </p></html>\n')
     
     # 303 works
@@ -824,7 +827,7 @@ def goto_main_page(main_page):
 def output_xml(node):
     """Serve the XML for the Marketplace. Here you go."""
     # output
-    print('Content-Type: text/xml; charset=utf-8\n')
+    print(HEADERLINE % 'xml')
     # this is of a bytes type
     xml_bytes = etree.tostring(node, pretty_print=True, encoding='utf-8', xml_declaration=True)
     # convert this to a string
