@@ -48,7 +48,7 @@ Some new stuff:
 
 """
 __author__ = "Klaus Thoden, kthoden@mpiwg-berlin.mpg.de"
-__date__ = "2016-09-22"
+__date__ = "2017-05-19"
 
 ###########
 # Imports #
@@ -69,7 +69,9 @@ import locale
 import sys
 import socket
 # list of servers we are working on. Seems to depend on login shell
-servers = ("ocropus", "textgrid-esx1")
+# disabling it for now
+# servers = ("ocropus", "textgrid-esx1")
+servers = ()
 if socket.gethostname() in servers:
     locale.getpreferredencoding = lambda: 'UTF-8'
     # Re-open standard files in UTF-8 mode.
@@ -462,7 +464,7 @@ def get_updates(page_id):
 # def get_updates ends here
 
 def update_all(lopi):
-    print('Content type: text/html; charset=utf-8\n')
+    print('Content-Type: text/html; charset=utf-8\n')
     print('<html>\n<p>Updating %s files:</p>\n' % len(lopi))
     for page in lopi:
         print('<p>%s</p>' % page)
@@ -474,7 +476,7 @@ def update_all(lopi):
 
 def cache_reload(lopi):
     """Function for refreshing the cache."""
-    print('Content type: text/html; charset=utf-8\n')
+    print('Content-Type: text/html; charset=utf-8\n')
     print('<html><p>Refreshing cache.</p></html>\n')
     logging.info("Refreshing the cache.")
 
@@ -482,6 +484,17 @@ def cache_reload(lopi):
         make_cache(pi)
     logging.info("Refresh finished.")
 # cache_reload ends here
+
+def debug():
+    """Function for refreshing the cache."""
+    logging.info("Debugging! We are on machine %s." % socket.gethostname())
+    print('Content-Type: text/html; charset=utf-8\n\n')
+    print('<html><p>Do you see me? Þau grafa sum fræin niður til síðari nota en geta þó gleymt þeim. </p></html>\n')
+    
+    # 303 works
+    # print('Status: 303 See Other')
+    # print('Location: http://www.mpg.de\n')
+# def debug ends here
 
 def make_cache(page_id):
     """In order to gain additional speed, cache the data and store them on
@@ -811,7 +824,7 @@ def goto_main_page(main_page):
 def output_xml(node):
     """Serve the XML for the Marketplace. Here you go."""
     # output
-    print('Content type: text/xml; charset=utf-8\n')
+    print('Content-Type: text/xml; charset=utf-8\n')
     # this is of a bytes type
     xml_bytes = etree.tostring(node, pretty_print=True, encoding='utf-8', xml_declaration=True)
     # convert this to a string
@@ -839,6 +852,8 @@ def main():
         cache_reload(lopi)
     if form.getvalue('action') == 'get_updates':
         update_all(lopi)
+    if form.getvalue('action') == 'debug':
+        debug()
 
     else:
         # yay! Plugins!
