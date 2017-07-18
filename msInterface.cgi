@@ -412,10 +412,10 @@ def build_plugin_info(page_id, infopage_xml, l):
     if len(parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Lizenz"]/../td/a/@href')) != 0:
         temp_plugin_object.license = parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Lizenz"]/../td/a/@href')[0]
 
-    if len(parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Logo"]/../td/image/attachment/@filename')) != 0:
-        temp_plugin_object.logo = parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Logo"]/../td/image/attachment/@filename')[0]
-    if len(parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Screenshots"]/../td/image/attachment/@filename')) != 0:
-        temp_plugin_object.screenshot = parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Screenshots"]/../td/image/attachment/@filename')[0]
+    if len(parsed_body.xpath('(' + PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Logo"]/../td//image/attachment/@filename)[1]')) != 0:
+        temp_plugin_object.logo = parsed_body.xpath('(' + PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Logo"]/../td//image/attachment/@filename)[1]')[0]
+    if len(parsed_body.xpath('(' + PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Screenshots"]/../td//image/attachment/@filename)[1]')) != 0:
+        temp_plugin_object.screenshot = parsed_body.xpath('(' + PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Screenshots"]/../td//image/attachment/@filename)[1]')[0]
 
     return temp_plugin_object
 # def build_plugin_info ends here
