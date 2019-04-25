@@ -563,7 +563,7 @@ def main():
     if form.getvalue('action') == 'goto_wiki':
         goto_main_page(MPLACE.main_wiki_page)
 
-    else:
+    if not form.getvalue('action'):
         print(HEADERLINE % 'html')
         print('<html><p>undefined action. possible actions are: main, catalogs, taxonomy, list, content, search, redirect, goto_wiki</p></html>\n')
 
