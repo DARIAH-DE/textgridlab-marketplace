@@ -532,7 +532,7 @@ def main():
     form = cgi.FieldStorage()
 
     # yay! Plugins!
-    with open("data.yaml", 'r') as stream:
+    with open('data.yaml', 'r', encoding='utf-8') as stream:
         PLUGINS = yaml.load(stream)
 
     if form.getvalue('action') == 'main':
@@ -565,7 +565,7 @@ def main():
 
     else:
         print(HEADERLINE % 'html')
-        print('<html><p>undefined action, possible actions are: main, catalogs, taxonomy, list, content, search, redirect, goto_wiki</p></html>\n')
+        print('<html><p>undefined action. possible actions are: main, catalogs, taxonomy, list, content, search, redirect, goto_wiki</p></html>\n')
 
 if __name__ == "__main__":
     main()
