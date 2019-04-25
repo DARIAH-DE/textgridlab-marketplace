@@ -102,4 +102,83 @@
   logo: collatex_logo_small.png
   license: http://www.gnu.org/licenses/lgpl-3.0.txt
 
+- !PlugIn
+  plugId: 5
+  name: oxygen
+  category: 6
+  pageId: 34344150
+  featured: true
+  installableUnit: com.oxygenxml.editor
+  owner: Syncro Soft
+  company: Syncro Soft
+  company_url: Syncro Soft
+  update_url: http://www.oxygenxml.com/InstData/Editor/Eclipse/site.xml
+  human_title: Oxygen XML Editor
+  description: |
+    Der Oxygen XML Editor ist eine vollständige XML-Entwicklungsumgebung,
+    die alle Werkzeuge mitbringt, um mit einer großen Menge von XML-Standards
+    und -Technologien arbeiten zu können.
+  logo: IconOxygen70.png
+  license: http://www.oxygenxml.com/eula.html
+  screenshot: screenshot-oxygenxml_text_editor.png
+
+- !PlugIn
+  plugId: 6
+  name: aggregator-lab
+  category: 4
+  pageId: 38093121
+  featured: true
+  installableUnit: info.textgrid.lab.aggregator.feature.feature.group
+  owner: TextGrid
+  company: TextGrid
+#  company_url:
+  update_url: http://download.digital-humanities.de/updates/textgridlab/aggregator/
+  human_title: TextGridRep-Vorschau
+  description: |
+    Die TextGridRep-Vorschau zeigt für noch nicht veröffentlichte
+    TEI-Dokumente im TextGridLab, wie diese nach der Veröffentlichung
+    im Rep (ungefähr) dargestellt würden.
+  logo: http://textgridrep.de/images/textgridrep_logo.png
+  license: http://www.gnu.org/licenses/lgpl-3.0.txt
+#  screenshot:
+
+- !PlugIn
+  plugId: 7
+  name: rdf-object-editor
+  category: 4
+  pageId: 40212773
+  featured: true
+  installableUnit: de.blumenbach_online.tglab.feature.sammlungsdb
+  owner: TextGrid
+  company: TextGrid
+#  company_url:
+  update_url: http://ci.de.dariah.eu/jenkins/view/TextGridLab/job/RDF-Object-TextGridLab-Plugin/ws/p2repository/target/repository/
+  human_title: RDF Object Editor
+  description: |
+    TextGridLab plugin for the RDF Object Editor
+  logo: rdf_flyer.64.gif
+  license: http://www.gnu.org/licenses/lgpl-3.0.txt
+#  screenshot:
+
+- !PlugIn
+  plugId: 8
+  name: tghttpserver
+  category: 4
+  pageId: 58493355
+  featured: true
+  installableUnit: de.sub.goettingen.tghttpserver.feature
+  owner: SUB
+  company: SUB
+#  company_url:
+  update_url: https://hannah-arendt-project.github.io/TextGridHttpServerPlugin/
+  human_title: TextGridHttpServer
+  description: |
+    Dieses Plugin ermöglicht einen Zugriff auf die persönlichen TextGrid
+    Objekte per HTTP. Dieses Tool ist nützlich, wenn bei der Edition XSLT
+    Transformationen verwendet werden, die Bilder und Skripte aus dem
+    TextGrid Repository verwenden. Ohne dieses Plugin kann der eingebaute
+    Webbrowser diese Objekte sonst nicht aufrufen.
+  logo: tglogo-small.png
+  license: https://www.apache.org/licenses/LICENSE-2.0
+#  screenshot:
 
