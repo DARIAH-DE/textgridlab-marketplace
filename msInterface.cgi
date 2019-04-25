@@ -68,6 +68,7 @@ import os
 import locale
 import sys
 import socket
+import yaml
 # list of servers we are working on. Seems to depend on login shell
 # disabling it for now
 # servers = ("ocropus", "textgrid-esx1")
@@ -130,7 +131,7 @@ class PlugIn():
                  name = "",
                  human_title = "",
                  description = "",
-                 featured = "",
+                 featured = False,
                  logo = "",
                  license = "",
                  plugId = "",
@@ -145,11 +146,11 @@ class PlugIn():
         self.description = description
         self.logo = logo
         self.license = license
-        self.plugId = plugId
+        self.plugId = str(plugId)
         self.featured = featured
         self.name = name
-        self.category = category
-        self.pageId = pageId
+        self.category = str(category)
+        self.pageId = str(pageId)
         self.screenshot = screenshot
         self.installableUnit = installableUnit
         self.owner = owner
@@ -186,331 +187,16 @@ MPLACE = MarketPlace(
     CONFIG['General']['update_url'],
     CONFIG['General']['main_wiki_page'])
 
-#################
-# Small helpers #
-#################
-def reverse_tags(text):
-    """Deals with the escaped html markup in the page that is returned
-    from confluence. Re-establishes the XML tags and deletes the
-    namespaces.
-    """
-    import re
+################
+# YAML parsing #
+################
 
-    replacements = {
-        '&amp;' : '&',
-        '&lt;' : '<',
-        '&gt;' : '>',
-        '&quot;' : '"',
-        '&apos;' : "'",
-        'ac:' : '',
-        'ri:' : ''
-    }
+def plugin_constructor(loader, node):
+    fields = loader.construct_mapping(node)
+    return PlugIn(**fields)
 
-    for thing in list(replacements.keys()):
-        text = text.replace(thing, replacements[thing])
-    text = re.sub(r'&(?=\s)', '&amp;', text)
-    return text
-# def reverse_tags ends here
+yaml.add_constructor('!PlugIn', plugin_constructor)
 
-def unescape(text):
-    """Remove HTML or XML character references and entities from a text
-    string. Return a Unicode string.
-
-    With thanks to http://effbot.org/zone/re-sub.htm#unescape-html.
-    Modified to work with Python3.
-    """
-    import re, html.entities
-
-    def fixup(m):
-        text = m.group(0)
-        if text[:2] == "&#":
-            # character reference
-            try:
-                if text[:3] == "&#x":
-                    return chr(int(text[3:-1], 16))
-                else:
-                    return chr(int(text[2:-1]))
-            except ValueError:
-                pass
-        else:
-            # named entity
-            try:
-                text = chr(html.entities.name2codepoint[text[1:-1]])
-            except KeyError:
-                pass
-        return text # leave as is
-    return re.sub(r"&#?\w+;", fixup, text)
-# def unescape ends here
-
-####################
-# Confluence stuff #
-####################
-def get_confluence_config():
-    """Read the developer's configuration of the plugins. This is also
-    kept on Confluence so that it can be modified more easily.
-    Currently it resides on
-    https://dev2.dariah.eu/wiki/rest/prototype/1/content/36342854.
-    Return a neatly formatted XML file containing a table.
-    """
-    info_site = CONFIG['General']['plugin_info']
-
-    plugin_info = get_confluence_page(info_site)
-    table = parse_confluence_body(plugin_info)
-
-    return table
-# def get_confluence_config ends here
-
-def get_list_of_plugins():
-    """Query the confluence wiki and return a list of plugin objects."""
-    # Get the XML of the infopage and store it in memory
-    infopage_xml = get_confluence_config()
-
-    # create immutable tuple of the page_ids, because we need to deal
-    # with positional stuff in that list lateron
-    lopi = tuple(infopage_xml.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr[*]/td[4]/text()'))
-
-    # with that tuple in place, we can call the build function
-    # individually, however recurring to the tuple in order to get
-    # info from the correct line in the table from infopage_xml
-    return lopi, infopage_xml
-# def get_list_of_plugins
-
-def get_confluence_page(confluence_page_id):
-    """Retrieve a page from Confluence's REST api. The confluence_page_id
-    is found in the config file. Return an XML document which needs to
-    be refined using parse_confluence_body.
-    """
-    import urllib.request, urllib.parse, urllib.error
-
-    base_url = CONFIG['General']['wiki_api']
-    fullpath = base_url + str(confluence_page_id)
-    logging.debug("Trying to fetch %s" % fullpath)
-    usock = urllib.request.urlopen(fullpath)
-
-    try:
-        logging.info("Querying %s for data" % fullpath)
-        logging.info("This corrensponds to %s%s" % (WIKI_VIEW, str(confluence_page_id)))
-        plugin_info = etree.parse(usock)
-    except etree.XMLSyntaxError:
-        logging.error("Retrieved XML syntax error.")
-        sys.exit()
-    usock.close()
-
-    return plugin_info
-## def get_confluence_page ends here
-
-def parse_confluence_body(returned_xml):
-    """Parse the page returned by get_confluence_page, fix the code and
-    read the content of /content/body, which is escaped XML code, into
-    XML. Return that XML element, wrapped in a new root tag "pluginInfo".
-    """
-
-    # Atlassian namespaces, we don't really use them
-    # http://www.amnet.net.au/~ghannington/confluence/docs/confluence/g-ri_confluence.ri.html
-    NS = {'ri':'http://www.atlassian.com/schema/confluence/4/ri/',
-          'ac':'http://www.atlassian.com/schema/confluence/4/ac/'}
-
-    plugin_body = returned_xml.xpath('/content/body')[0].text
-
-    # some ugly modifications
-    clean = reverse_tags(plugin_body)
-    clean = unescape(clean)
-
-    # recent developments (2016-09-22) made changes to the XML format
-
-    sanitized_body = "<pluginInfo>" + clean + "</pluginInfo>"
-
-    body_xml = etree.fromstring(sanitized_body)
-
-    # for sanity's sake we wrap this again in an XML element
-    # parsed_body = etree.Element("pluginInfo")
-    # parsed_body.append(body_xml)
-
-    return body_xml
-## def parse_confluence_body ends here
-
-def confluence_page_xml(page_id):
-    """Get a page from the confluence wiki, have it parsed and
-    timestamped. This is the XML to work with"""
-    # get additional info from the plugin info pages
-    raw_xml = get_confluence_page(page_id)
-    parsed_body = parse_confluence_body(raw_xml)
-
-    # control things, i. e. caching
-    # put in here also name and links to the page!
-    last_modified = etree.Element("lastModified")
-    last_modified.text = raw_xml.xpath('/content/lastModifiedDate/@date')[0]
-    parsed_body.insert(0, last_modified)
-
-    parsed_body.insert(0, etree.Comment("""File generated on %s.
-    Corresponds to %s%s """ % (datetime.now().strftime("%Y-%m-%dT%H:%M:%S"), WIKI_VIEW, page_id)))
-
-    return parsed_body
-# def confluence_page_xml ends here
-
-def build_plugin_info(page_id, infopage_xml, l):
-    """Construct the plugin object by using the confluence page id. Take
-    the page_id to query first the infopage and then the individual
-    plugin pages. l is the index of the page in the lopi tuple which
-    we need to address the correct line in infopage table.
-    """
-
-    # # in what position is that page_id in lopi?
-    # l = lopi.index(page_id)
-
-    # make an object
-    temp_plugin_object = PlugIn(page_id)
-
-    for i in range(1,11):
-        # this loop goes through the columns of a table line and
-        # assigns the appropriate value to each plugin using double
-        # slashes before the text() node to cater for the occasional p
-        # tag
-        tmp_xpath = PLUGIN_INFO_TABLE_XPATH + 'tbody/tr[%s]/td[%s]//text()' % (l + 2, i)
-        if i == 1:
-            temp_plugin_object.plugId = infopage_xml.xpath(tmp_xpath)[0]
-        if i == 2:
-            temp_plugin_object.name = infopage_xml.xpath(tmp_xpath)[0]
-        if i == 3:
-            temp_plugin_object.category = infopage_xml.xpath(tmp_xpath)[0]
-        if i == 4:
-            temp_plugin_object.pageId = infopage_xml.xpath(tmp_xpath)[0]
-        if i == 5:
-            temp_plugin_object.featured = infopage_xml.xpath(tmp_xpath)[0]
-        if i == 6:
-            temp_plugin_object.installableUnit = infopage_xml.xpath(tmp_xpath)[0]
-        if i == 7:
-            if infopage_xml.xpath(tmp_xpath)[0] != "\xa0":
-                temp_plugin_object.owner = infopage_xml.xpath(tmp_xpath)[0]
-        if i == 8:
-            if infopage_xml.xpath(tmp_xpath)[0] != "\xa0":
-                temp_plugin_object.company = infopage_xml.xpath(tmp_xpath)[0]
-        if i == 9:
-            if infopage_xml.xpath(tmp_xpath)[0] != "\xa0":
-                tmp_xpath_href = PLUGIN_INFO_TABLE_XPATH + 'tbody/tr[%s]/td[%s]/a/@href' % (l + 2, i)
-                temp_plugin_object.company_url = infopage_xml.xpath(tmp_xpath_href)[0]
-        if i == 10:
-            if infopage_xml.xpath(tmp_xpath)[0] != "\xa0":
-                tmp_xpath_href = PLUGIN_INFO_TABLE_XPATH + 'tbody/tr[%s]/td[%s]/a/@href' % (l + 2, i)
-                temp_plugin_object.update_url = infopage_xml.xpath(tmp_xpath_href)[0]
-
-    # for speed issues, we store the wiki pages as XML files.
-    cached_page = CACHE_DIR + "/" + page_id + ".xml"
-    if not os.path.exists(cached_page):
-        logging.info("Downloading %s." % page_id)
-        make_cache(page_id)
-    else:
-        logging.info("Using cached version of plugin info for %s." % page_id)
-
-    cached_page = CACHE_DIR + "/" + page_id + ".xml"
-    parsed_body = etree.parse(cached_page)
-
-    # double slashes before the text() node to cater for the
-    # occasional p tag
-    temp_plugin_object.human_title = parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Titel"]/../td//text()')[0]
-    temp_plugin_object.description = parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Beschreibung"]/../td//text()')[0]
-    if len(parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Lizenz"]/../td/a/@href')) != 0:
-        temp_plugin_object.license = parsed_body.xpath(PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Lizenz"]/../td/a/@href')[0]
-
-    if len(parsed_body.xpath('(' + PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Logo"]/../td//image/attachment/@filename)[1]')) != 0:
-        temp_plugin_object.logo = parsed_body.xpath('(' + PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Logo"]/../td//image/attachment/@filename)[1]')[0]
-    if len(parsed_body.xpath('(' + PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Screenshots"]/../td//image/attachment/@filename)[1]')) != 0:
-        temp_plugin_object.screenshot = parsed_body.xpath('(' + PLUGIN_INFO_TABLE_XPATH + 'tbody/tr/th[text()="Screenshots"]/../td//image/attachment/@filename)[1]')[0]
-
-    return temp_plugin_object
-# def build_plugin_info ends here
-
-###########
-# Caching #
-###########
-def get_modified_time(confluence_page_id):
-    """Parse the last modified date from plugin info page. Return parsed
-    datetime object"""
-
-    raw_xml = get_confluence_page(str(confluence_page_id))
-    # <lastModifiedDate date="2014-11-24T12:26:01+0100" friendly="Nov 24, 2014"/>
-    last_modified = raw_xml.xpath('/content/lastModifiedDate/@date')[0]
-    return datetime.strptime(last_modified, "%Y-%m-%dT%H:%M:%S%z")
-# def get_modified_time ends here
-
-def get_cached_time(page_id):
-    """Return date of last modification from cached item so that we can
-    compare it with the date from the wiki."""
-
-    query_cache = CACHE_DIR + "/" + page_id + ".xml"
-    XML = etree.parse(query_cache)
-
-    cached_time_string = XML.xpath('/pluginInfo/lastModified/text()')[0]
-    cached_time = datetime.strptime(cached_time_string, "%Y-%m-%dT%H:%M:%S%z")
-    return cached_time
-# def get_cached_time ends here
-
-def get_updates(page_id):
-    """Get new plugin information from Confluence. This is a function that
-    should be run by a cron job or something"""
-    wiki_date = get_modified_time(page_id)
-    cached_date = get_cached_time(page_id)
-
-    logging.info(wiki_date)
-    logging.info(cached_date)
-
-    if wiki_date == cached_date:
-        logging.info("Nothing new on the server." % page_id)
-
-    if wiki_date > cached_date:
-        # renew cache for that page
-        logging.info("Online version of %s is newer that cached version. Refreshing." % page_id)
-        make_cache(page_id)
-    else:
-        logging.info("Nothing new on the server." % page_id)
-# def get_updates ends here
-
-def update_all(lopi):
-    print(HEADERLINE % 'html')
-    print('<html>\n<p>Updating %s files:</p>\n' % len(lopi))
-    for page in lopi:
-        print('<p>%s</p>' % page)
-        logging.debug("Do I need to update %s?" % pi)
-        get_updates(pi)
-
-    print('</html>\n')
-# def update_all ends here
-
-def cache_reload(lopi):
-    """Function for refreshing the cache."""
-    print(HEADERLINE % 'html')
-    print('<html><p>Refreshing cache.</p></html>\n')
-    logging.info("Refreshing the cache.")
-
-    for pi in lopi:
-        make_cache(pi)
-    logging.info("Refresh finished.")
-# cache_reload ends here
-
-def debug():
-    """Function for refreshing the cache."""
-    logging.info("Debugging! We are on machine %s." % socket.gethostname())
-    # print('Content-Type: text/html; charset=utf-8\n')
-    print(HEADERLINE % 'html')
-    print('<html><p>Do you see me? Þau grafa sum fræin niður til síðari nota en geta þó gleymt þeim. </p></html>\n')
-    
-    # 303 works
-    # print('Status: 303 See Other')
-    # print('Location: http://www.mpg.de\n')
-# def debug ends here
-
-def make_cache(page_id):
-    """In order to gain additional speed, cache the data and store them on
-    the server as XML files. This function downloads the page, has it
-    modified and timestamped and writes it to a file.
-    """
-    parsed_page = confluence_page_xml(page_id)
-
-    writeDest = CACHE_DIR + "/" + page_id + ".xml"
-    logging.info("Writing plugin info to %s." % writeDest)
-    tree = etree.ElementTree(parsed_page)
-    tree.write(writeDest, pretty_print=True, xml_declaration=True,encoding="utf-8")
-# make_cache ends here
     
 #############
 # Searching #
@@ -842,56 +528,44 @@ def output_xml(node):
 def main():
     """Parse what is received by the URL and ship it out to the relevant channel."""
 
-    # get the list of plugins
-    # lopi: tuple of the page_ids
-    lopi, infopage_xml = get_list_of_plugins()
-
     # arguments need to be read into something that the CGI can deal with
     form = cgi.FieldStorage()
 
-    if form.getvalue('action') == 'cache_reload':
-        cache_reload(lopi)
-    if form.getvalue('action') == 'knopf':
-        cache_reload(lopi)
-    if form.getvalue('action') == 'get_updates':
-        update_all(lopi)
-    if form.getvalue('action') == 'debug':
-        debug()
+    # yay! Plugins!
+    with open("data.yaml", 'r') as stream:
+        PLUGINS = yaml.load(stream)
+
+    if form.getvalue('action') == 'main':
+        node = build_mp_apip()
+        output_xml(node)
+    if form.getvalue('action') == 'catalogs':
+        node = build_mp_cat_apip()
+        output_xml(node)
+    if form.getvalue('action') == 'taxonomy':
+        node = build_mp_taxonomy(form.getvalue('marketId'), form.getvalue('categoryId'), PLUGINS)
+        output_xml(node)
+    # list covers all of recent, favorites, popular and featured
+    if form.getvalue('action') == 'list':
+        if form.getvalue('marketId') != None:
+            node = build_mp_frfp_apip(form.getvalue('type'), PLUGINS, form.getvalue('marketId'))
+        else:
+            node = build_mp_frfp_apip(form.getvalue('type'), PLUGINS)
+        output_xml(node)
+    if form.getvalue('action') == 'content':
+        node = build_mp_content_apip(form.getvalue('plugId'), PLUGINS)
+        output_xml(node)
+    if form.getvalue('action') == 'search':
+        node = build_mp_search_apip(form.getvalue('query'), lopi, PLUGINS)
+        output_xml(node)
+
+    if form.getvalue('action') == 'redirect':
+        goto_confluence(form.getvalue('plugId'), PLUGINS)
+    if form.getvalue('action') == 'goto_wiki':
+        goto_main_page(MPLACE.main_wiki_page)
 
     else:
-        # yay! Plugins!
-        PLUGINS = []
-
-        for pgid in lopi:
-            PLUGINS.append(build_plugin_info(pgid, infopage_xml, lopi.index(pgid)))
-
-        if form.getvalue('action') == 'main':
-            node = build_mp_apip()
-            output_xml(node)
-        if form.getvalue('action') == 'catalogs':
-            node = build_mp_cat_apip()
-            output_xml(node)
-        if form.getvalue('action') == 'taxonomy':
-            node = build_mp_taxonomy(form.getvalue('marketId'), form.getvalue('categoryId'), PLUGINS)
-            output_xml(node)
-        # list covers all of recent, favorites, popular and featured
-        if form.getvalue('action') == 'list':
-            if form.getvalue('marketId') != None:
-                node = build_mp_frfp_apip(form.getvalue('type'), PLUGINS, form.getvalue('marketId'))
-            else:
-                node = build_mp_frfp_apip(form.getvalue('type'), PLUGINS)
-            output_xml(node)
-        if form.getvalue('action') == 'content':
-            node = build_mp_content_apip(form.getvalue('plugId'), PLUGINS)
-            output_xml(node)
-        if form.getvalue('action') == 'search':
-            node = build_mp_search_apip(form.getvalue('query'), lopi, PLUGINS)
-            output_xml(node)
-
-        if form.getvalue('action') == 'redirect':
-            goto_confluence(form.getvalue('plugId'), PLUGINS)
-        if form.getvalue('action') == 'goto_wiki':
-            goto_main_page(MPLACE.main_wiki_page)
+        print(HEADERLINE % 'html')
+        print('<html><p>undefined action, possible actions are: main, catalogs, taxonomy, list, content, search, redirect, goto_wiki</p></html>\n')
 
 if __name__ == "__main__":
     main()

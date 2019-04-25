@@ -1,0 +1,105 @@
+# marketplace plugins
+# transfered from https://wiki.de.dariah.eu/pages/viewpage.action?pageId=36342854
+
+#- !PlugIn
+#  plugId:
+#  name:
+#  category:
+#  pageId:
+#  featured:
+#  installableUnit:
+##  owner:
+##  company:
+##  company_url:
+#  update_url:
+#  human_title:
+#  description: |
+#    
+#  logo:
+#  license:
+#  screenshot:
+
+
+---
+- !PlugIn
+  plugId: 1
+  name: sadepublish
+  category: 4
+  pageId: 34344152
+  featured: false
+  installableUnit: info.textgrid.lab.feature.sadepublish.feature.group
+#  owner:
+#  company:
+#  company_url:
+  update_url: http://download.digital-humanities.de/updates/textgridlab/sadepublish/
+  human_title: SADE Publish Tool
+  description: |
+    Mit SADE (Skalierbare Architektur für Digitale Editionen) 
+    können TextGrid-Projekte auf einer SADE-Instanz publiziert
+    werden.
+  logo: sade_logo153-Web-Preview64x64.png
+  license: http://www.gnu.org/licenses/lgpl-3.0.txt
+  screenshot: Screenshot%20from%202017-12-07%2010-15-10.png
+
+- !PlugIn
+  plugId: 2
+  name: noteeditor
+  category: 4
+  pageId: 34344141
+  featured: true
+  installableUnit: info.textgrid.lab.noteeditor.feature.feature.group
+#  owner:
+#  company:
+#  company_url:
+  update_url: http://textgridlab.org/updates/beta
+  human_title: MEISE Noteneditor
+  description: |
+    Mit dem MEISE Noten-Editor können Notentexte in MEI graphisch
+    kodiert, bearbeitet und auf einem einfachen Niveau auch
+    dargestellt werden. So wird u.a. die Visualisierung von
+    Varianten erheblich erleichtert.
+  logo: meise_64.png
+  license: https://www.gnu.org/licenses/gpl-3.0-standalone.html
+#  screenshot:
+
+- !PlugIn
+  plugId: 3
+  name: digilib
+  category: 4
+  pageId: 34341688
+  featured: true
+  installableUnit: de.mpg.mpiwg.itgroup.textgrid.digilib.feature.feature.group
+#  owner:
+#  company:
+#  company_url:
+  update_url: http://textgridlab.org/updates/beta
+  human_title: Digilib
+  description: | 
+    Das Bildbetrachtungs- und Bearbeitungstool Digilib erlaubt die Betrachtung, 
+    Veränderung und Referenzierung von Bilder in TextGrid. Unterstützte Funktionen sind: 
+    Zoomen, Drehen, Spiegeln, Kontrast, Helligkeit und Farben ändern. Veränderte 
+    Bildansichten können gespeichert und wieder aufgrufen werden (Originalbilder bleiben unberührt).
+  logo: digilib-logo-big.png
+  license: http://www.gnu.org/licenses/lgpl-3.0.txt
+
+- !PlugIn
+  plugId: 4
+  name: collatex
+  category: 4
+  pageId: 34344155
+  featured: true
+  installableUnit: info.textgrid.lab.collatex.feature.feature.group
+#  owner:
+#  company:
+#  company_url:
+  human_title: CollateX
+  description: |
+    CollateX ist ein Programm zur Kollationierung von Texten um einen
+    kritischen Apparat zu erzeugen. Es ist der Nachfolger von Peter 
+    Robinsons Collate und wird von verschiedenen Partnerinstitutionen und
+    Einzelpersonen im Rahmen der europäischen Initiative "Interedition"
+    gemeinsam entwickelt.
+  logo: collatex_logo_small.png
+  license: http://www.gnu.org/licenses/lgpl-3.0.txt
+
+
