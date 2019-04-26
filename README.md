@@ -1,8 +1,7 @@
+# About
+
 This is a catalog software for negotiating between an Eclipse-based
 program and a wiki-like software that contains additional information
 about the plugins to be installed. It is a webservice run as a cgi,
 implemented in Python3.
 
-As of now, the whole program is customized to be used with the
-Confluence wiki software. However, parsers for other wiki systems can
-be written quickly.
