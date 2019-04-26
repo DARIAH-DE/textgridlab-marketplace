@@ -12,8 +12,8 @@ https://wiki.eclipse.org/Marketplace/REST
 
 # Adding Plugins to the TextGridLab marketplace
 
-Plugins are located in data.yaml, to add a new Plugin you may create a pull request for data.yaml. 
-The following template may be used and filled:
+Plugins are located in data.yaml, to add a new plugin you may create a pull request for data.yaml. 
+The following template could be used:
 
 ```yaml
 
@@ -36,4 +36,5 @@ The following template may be used and filled:
   screenshot:
 ```
 
+required fields are: name, installableUnit, update_url, human_title, description and license
 
