@@ -92,6 +92,7 @@
 #  owner:
 #  company:
 #  company_url:
+  update_url: http://textgridlab.org/updates/beta
   human_title: CollateX
   description: |
     CollateX ist ein Programm zur Kollationierung von Texten um einen
