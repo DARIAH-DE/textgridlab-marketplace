@@ -57,28 +57,11 @@ from lxml import etree
 from datetime import datetime
 import configparser
 import logging
-import cgi
 import os
-
-# had some big problems with getting the encoding right
-# answer on https://stackoverflow.com/questions/9322410/set-encoding-in-python-3-cgi-scripts
-# finally did the trick:
-# Ensures that subsequent open()s are UTF-8 encoded.
-# Mind you, this is dependant on the server it is running on!
 import locale
 import sys
-import socket
 import yaml
-# list of servers we are working on. Seems to depend on login shell
-# disabling it for now
-# servers = ("ocropus", "textgrid-esx1")
-servers = ()
-if socket.gethostname() in servers:
-    locale.getpreferredencoding = lambda: 'UTF-8'
-    # Re-open standard files in UTF-8 mode.
-    sys.stdin = open('/dev/stdin', 'r')
-    sys.stdout = open('/dev/stdout', 'w')
-    sys.stderr = open('/dev/stderr', 'w')
+from flask import Flask, Response, render_template 
 
 # setting up things
 # both config and cache directory are in the same place as this script
@@ -92,10 +75,6 @@ numeric_level = getattr(logging, LOGLEVEL.upper(), None)
 if not isinstance(numeric_level, int):
     raise ValueError('Invalid log level: %s' % loglevel)
 logging.basicConfig(filename=LOGFILE, level=numeric_level, format='%(asctime)s - %(levelname)s - %(message)s')
-
-CACHE_DIR = CONFIG['General']['cache_dir']
-if not os.path.exists(CACHE_DIR):
-    os.mkdir(os.path.expanduser(CACHE_DIR))
 
 WIKI_VIEW = CONFIG['General']['wiki_view']
 
@@ -190,13 +169,16 @@ MPLACE = MarketPlace(
 ################
 # YAML parsing #
 ################
-
 def plugin_constructor(loader, node):
     fields = loader.construct_mapping(node)
     return PlugIn(**fields)
 
 yaml.add_constructor('!PlugIn', plugin_constructor)
 
+def load_data():
+    with open('data.yaml', 'r', encoding='utf-8') as stream:
+        PLUGINS = yaml.load(stream)
+    return PLUGINS
     
 #############
 # Searching #
@@ -486,89 +468,65 @@ def build_mp_search_apip(search_string, lopi, PLUGINS):
 ##########
 # Output #
 ##########
-def goto_confluence(plug_id, PLUGINS):
-    """Redirect the browser to the Confluence page."""
-
-    for candidate in PLUGINS:
-        if candidate.plugId == plug_id:
-            goto_page = candidate.pageId
-
-    goto_url = WIKI_VIEW + goto_page
-
-    print('Status: 303 See Other')
-    # newline is important here
-    print('Location: ' + goto_url + '\n')
-# def goto_confluence ends here
-
-def goto_main_page(main_page):
-    """Redirect the browser to the Confluence page. Doubling code is not good!"""
-
-    goto_url = WIKI_VIEW + main_page
-
-    print('Status: 303 See Other')
-    # newline is important here
-    print('Location: ' + goto_url + '\n')
-# def goto_confluence ends here
-
-def output_xml(node):
-    """Serve the XML for the Marketplace. Here you go."""
-    # output
-    print(HEADERLINE % 'xml')
-    # this is of a bytes type
+def xmlresponse(node):
     xml_bytes = etree.tostring(node, pretty_print=True, encoding='utf-8', xml_declaration=True)
     # convert this to a string
     ship_out = xml_bytes.decode('utf-8')
-    # for debugging
-    print(ship_out)
-# def output_xml ends here
+    return Response(ship_out, mimetype='application/xml')
+# def xmlresponse ends here
 
-################
-# The main bit #
-################
-def main():
-    """Parse what is received by the URL and ship it out to the relevant channel."""
 
-    # arguments need to be read into something that the CGI can deal with
-    form = cgi.FieldStorage()
+##########
+# routes #
+##########
+mp = Flask(__name__) 
 
-    # yay! Plugins!
-    with open('data.yaml', 'r', encoding='utf-8') as stream:
-        PLUGINS = yaml.load(stream)
+@mp.route("/api/p")
+def main_api_p():
+    node = build_mp_apip()
+    return xmlresponse(node)
 
-    if form.getvalue('action') == 'main':
-        node = build_mp_apip()
-        output_xml(node)
-    if form.getvalue('action') == 'catalogs':
-        node = build_mp_cat_apip()
-        output_xml(node)
-    if form.getvalue('action') == 'taxonomy':
-        node = build_mp_taxonomy(form.getvalue('marketId'), form.getvalue('categoryId'), PLUGINS)
-        output_xml(node)
-    # list covers all of recent, favorites, popular and featured
-    if form.getvalue('action') == 'list':
-        if form.getvalue('marketId') != None:
-            node = build_mp_frfp_apip(form.getvalue('type'), PLUGINS, form.getvalue('marketId'))
-        else:
-            node = build_mp_frfp_apip(form.getvalue('type'), PLUGINS)
-        output_xml(node)
-    if form.getvalue('action') == 'content':
-        node = build_mp_content_apip(form.getvalue('plugId'), PLUGINS)
-        output_xml(node)
-    if form.getvalue('action') == 'search':
-        node = build_mp_search_apip(form.getvalue('query'), lopi, PLUGINS)
-        output_xml(node)
+@mp.route("/catalogs/api/p")
+def catalogs_api_p():
+    node = build_mp_cat_apip()
+    return xmlresponse(node)
 
-    if form.getvalue('action') == 'redirect':
-        goto_confluence(form.getvalue('plugId'), PLUGINS)
-    if form.getvalue('action') == 'goto_wiki':
-        goto_main_page(MPLACE.main_wiki_page)
+@mp.route("/taxonomy/term/<market_id>,<category_id>/api/p")
+def taxonomy_term_api_p(market_id, category_id):
+    PLUGINS = load_data()
+    node = build_mp_taxonomy(market_id, category_id, PLUGINS)
+    return xmlresponse(node)
 
-    if not form.getvalue('action'):
-        print(HEADERLINE % 'html')
-        print('<html><p>undefined action. possible actions are: main, catalogs, taxonomy, list, content, search, redirect, goto_wiki</p></html>\n')
+@mp.route("/node/<plugin_id>/api/p")
+def show_node_api_p(plugin_id):
+    PLUGINS = load_data()
+    node = build_mp_content_apip(plugin_id, PLUGINS)
+    return xmlresponse(node)
 
-if __name__ == "__main__":
-    main()
+@mp.route("/content/<plugin_id>/api/p")
+def show_content_api_p(plugin_id):
+    PLUGINS = load_data()
+    node = build_mp_content_apip(plugin_id, PLUGINS)
+    return xmlresponse(node)
+
+@mp.route("/<ltype>/api/p")
+def list_type_api_p(ltype):
+    PLUGINS = load_data()
+    node = build_mp_frfp_apip(ltype, PLUGINS)
+    return xmlresponse(node)
+
+@mp.route("/<ltype>/<market_id>/api/p")
+def list_type_market_api_p(ltype, market_id):
+    PLUGINS = load_data()
+    node = build_mp_frfp_apip(ltype, PLUGINS, market_id)
+    return xmlresponse(node)
+
+@mp.errorhandler(404)
+def not_found(error):
+    return render_template('404.html'), 404
+
+if __name__ == "__main__":  
+   mp.run('0.0.0.0', debug=True)
 
 #########
 # FINIS #
