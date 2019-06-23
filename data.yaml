@@ -105,7 +105,7 @@
 
 - !PlugIn
   plugId: 5
-  name: oxygen
+  name: oxygen-latest
   category: 6
   pageId: 34344150
   featured: true
@@ -114,11 +114,13 @@
   company: Syncro Soft
   company_url: Syncro Soft
   update_url: http://www.oxygenxml.com/InstData/Editor/Eclipse/site.xml
-  human_title: Oxygen XML Editor
+  human_title: Oxygen XML Editor - Aktuelle Version
   description: |
     Der Oxygen XML Editor ist eine vollständige XML-Entwicklungsumgebung,
     die alle Werkzeuge mitbringt, um mit einer großen Menge von XML-Standards
-    und -Technologien arbeiten zu können.
+    und -Technologien arbeiten zu können. 
+    Dieser Eintrag verweist immer auf die aktuelleste Oxygen Version, spezifische
+    Versionen sind einzeln im Marktplatz installierbar.
   logo: IconOxygen70.png
   license: http://www.oxygenxml.com/eula.html
   screenshot: screenshot-oxygenxml_text_editor.png
@@ -183,3 +185,62 @@
   license: https://www.apache.org/licenses/LICENSE-2.0
 #  screenshot:
 
+- !PlugIn
+  plugId: 9
+  name: oxygen-21
+  category: 6
+  pageId: 34344150
+  featured: true
+  installableUnit: com.oxygenxml.editor
+  owner: Syncro Soft
+  company: Syncro Soft
+  company_url: Syncro Soft
+  update_url: http://archives.oxygenxml.com/Oxygen/Editor/InstData21.0/Eclipse/site.xml
+  human_title: Oxygen XML Editor - 21.0
+  description: |
+    Der Oxygen XML Editor ist eine vollständige XML-Entwicklungsumgebung,
+    die alle Werkzeuge mitbringt, um mit einer großen Menge von XML-Standards
+    und -Technologien arbeiten zu können.
+  logo: IconOxygen70.png
+  license: http://www.oxygenxml.com/eula.html
+  screenshot: screenshot-oxygenxml_text_editor.png
+
+- !PlugIn
+  plugId: 10
+  name: oxygen-20
+  category: 6
+  pageId: 34344150
+  featured: true
+  installableUnit: com.oxygenxml.editor
+  owner: Syncro Soft
+  company: Syncro Soft
+  company_url: Syncro Soft
+  update_url: http://archives.oxygenxml.com/Oxygen/Editor/InstData20.1/Eclipse/site.xml
+  human_title: Oxygen XML Editor - 20.1
+  description: |
+    Der Oxygen XML Editor ist eine vollständige XML-Entwicklungsumgebung,
+    die alle Werkzeuge mitbringt, um mit einer großen Menge von XML-Standards
+    und -Technologien arbeiten zu können.
+  logo: IconOxygen70.png
+  license: http://www.oxygenxml.com/eula.html
+  screenshot: screenshot-oxygenxml_text_editor.png
+
+- !PlugIn
+  plugId: 11
+  name: oxygen-19
+  category: 6
+  pageId: 34344150
+  featured: true
+  installableUnit: com.oxygenxml.editor
+  owner: Syncro Soft
+  company: Syncro Soft
+  company_url: Syncro Soft
+  update_url: http://archives.oxygenxml.com/Oxygen/Editor/InstData19.1/Eclipse/site.xml
+  human_title: Oxygen XML Editor - 19.1
+  description: |
+    Der Oxygen XML Editor ist eine vollständige XML-Entwicklungsumgebung,
+    die alle Werkzeuge mitbringt, um mit einer großen Menge von XML-Standards
+    und -Technologien arbeiten zu können.
+  logo: IconOxygen70.png
+  license: http://www.oxygenxml.com/eula.html
+  screenshot: screenshot-oxygenxml_text_editor.png
