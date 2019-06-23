@@ -402,7 +402,11 @@ def build_mp_node_apip(plug_id, PLUGINS):
     foundation_element = etree.SubElement(node, "foundationmember").text = "1"
     url_element = etree.SubElement(node, "homepageurl").text = etree.CDATA(current_plugin.company_url)
     # icon of plugin
-    image_element = etree.SubElement(node, "image").text = etree.CDATA("https://dev2.dariah.eu/wiki/download/attachments/" + current_plugin.pageId + "/" + current_plugin.logo)
+    if current_plugin.logo.startswith('http'):
+        image_element = etree.SubElement(node, "image").text = etree.CDATA(current_plugin.logo)
+    else:
+        image_element = etree.SubElement(node, "image").text = etree.CDATA("https://dev2.dariah.eu/wiki/download/attachments/" + current_plugin.pageId + "/" + current_plugin.logo)
+
     # just a container
     ius_element = etree.SubElement(node, "ius")
     iu_element = etree.SubElement(ius_element, "iu").text = current_plugin.installableUnit
