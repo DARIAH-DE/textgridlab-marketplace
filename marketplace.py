@@ -61,6 +61,7 @@ import os
 import locale
 import sys
 import yaml
+import requests
 from flask import Flask, Response, render_template 
 
 # setting up things
@@ -524,6 +525,26 @@ def list_type_market_api_p(ltype, market_id):
     PLUGINS = load_data()
     node = build_mp_frfp_apip(ltype, PLUGINS, market_id)
     return xmlresponse(node)
+
+
+
+@mp.route("/check")
+def check_urls():
+    """Check all update site urls from data.yaml, return 500 in case of failures."""
+    PLUGINS = load_data()
+    urls = set() # a set, so we check every url only once
+    broken = set()
+    for plugin in PLUGINS:
+        urls.add(plugin.update_url)
+    for url in urls:
+        r = requests.get(url)
+        if r.status_code != 200:
+            broken.add(url)
+    if len(broken) > 0:
+        return Response("Failed update site URLs: " + ", ".join(broken), status=500)
+    else:
+        return "All update site URLS ok"
+
 
 @mp.errorhandler(404)
 def not_found(error):
