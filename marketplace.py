@@ -178,7 +178,7 @@ yaml.add_constructor('!PlugIn', plugin_constructor)
 
 def load_data():
     with open('data.yaml', 'r', encoding='utf-8') as stream:
-        PLUGINS = yaml.load(stream)
+        PLUGINS = yaml.load(stream, Loader=yaml.FullLoader)
     return PLUGINS
     
 #############
