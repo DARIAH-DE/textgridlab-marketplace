@@ -54,15 +54,16 @@ __date__ = "2017-05-19"
 # Imports #
 ###########
 from lxml import etree
-from datetime import datetime
 import configparser
 import logging
-import os
-import locale
-import sys
 import yaml
 import requests
-from flask import Flask, Response, render_template 
+from yaml.loader import BaseLoader
+
+from fastapi import FastAPI, Path, Response, HTTPException
+from fastapi.responses import PlainTextResponse, HTMLResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # setting up things
 # both config and cache directory are in the same place as this script
@@ -474,63 +475,124 @@ def build_mp_search_apip(search_string, lopi, PLUGINS):
 # Output #
 ##########
 def xmlresponse(node):
-    xml_bytes = etree.tostring(node, pretty_print=True, encoding='utf-8', xml_declaration=True)
-    # convert this to a string
-    ship_out = xml_bytes.decode('utf-8')
-    return Response(ship_out, mimetype='application/xml')
-# def xmlresponse ends here
+    xml = etree.tostring(node, pretty_print=True, encoding='utf-8', xml_declaration=True)
+    return Response(content=xml, media_type="application/xml")
 
 
 ##########
 # routes #
 ##########
-mp = Flask(__name__) 
+app = FastAPI(
+    title="TextGridLab Marketplace",
+    description="This is the API for the TextGridLab Marketplace, an implementation of the [Eclipse Marketplace API](https://wiki.eclipse.org/Marketplace/REST)",
+    version="2.0.0",
+)
 
-@mp.route("/api/p")
+# define xml response content type for openapi
+xmlresponsedef = {
+  200: {
+    "content": {
+      "application/xml": {}
+    }
+  },
+  422: {
+    "description": "Validation Error",
+    "content": {
+      "text/plain": {}
+    }
+  }
+}
+
+@app.get(
+  "/api/p", 
+  summary="List Markets and Categories",
+  description="""This will return a listing of Markets and Categories, it includes URLs for each category, as well number of listings in each category.
+    See [Retrieving A listing of Markets and Categories](https://web.archive.org/web/20200220202907/https://wiki.eclipse.org/Marketplace/REST#Retrieving_A_listing_of_Markets_and_Categories)""",
+  response_class=Response,
+  responses=xmlresponsedef
+)
 def main_api_p():
     node = build_mp_apip()
     return xmlresponse(node)
 
-@mp.route("/catalogs/api/p")
+
+@app.get("/catalogs/api/p",   
+  summary="List all Catalogs",
+  description="""This will return a listing of all catalogs that are browsable with the MPC. It also includes basic branding parameters, 
+    like title and icon and strategies resolving dependencies.
+    See [Retrieving a listing of all catalogs](https://web.archive.org/web/20200220202907/https://wiki.eclipse.org/Marketplace/REST#Retrieving_a_listing_of_all_catalogs)""",
+  response_class=Response,
+  responses=xmlresponsedef
+)
 def catalogs_api_p():
     node = build_mp_cat_apip()
     return xmlresponse(node)
 
-@mp.route("/taxonomy/term/<market_id>,<category_id>/api/p")
-def taxonomy_term_api_p(market_id, category_id):
+
+@app.get("/taxonomy/term/{market_id},{category_id}/api/p",
+  summary="Listings from a specific Market / Category",
+  response_class=Response,
+  responses=xmlresponsedef)
+def taxonomy_term_api_p(
+  market_id = Path(..., example="tg01"),
+  category_id = Path(..., example="stable")):
     PLUGINS = load_data()
     node = build_mp_taxonomy(market_id, category_id, PLUGINS)
     return xmlresponse(node)
 
-@mp.route("/node/<plugin_id>/api/p")
-def show_node_api_p(plugin_id):
+
+@app.get("/node/{plugin_id}/api/p", 
+  summary="Specific Listing",
+  response_class=Response,
+  responses=xmlresponsedef)
+def show_node_api_p(plugin_id = Path(..., example="1")):
     PLUGINS = load_data()
     node = build_mp_content_apip(plugin_id, PLUGINS)
     return xmlresponse(node)
 
-@mp.route("/content/<plugin_id>/api/p")
-def show_content_api_p(plugin_id):
+
+@app.get("/content/{plugin_id}/api/p", 
+  summary="Specific Listing",
+  response_class=Response,
+  responses=xmlresponsedef)
+def show_content_api_p(plugin_id = Path(..., example="1")):
     PLUGINS = load_data()
     node = build_mp_content_apip(plugin_id, PLUGINS)
     return xmlresponse(node)
 
-@mp.route("/<ltype>/api/p")
-def list_type_api_p(ltype):
+
+@app.get("/{ltype}/api/p",
+  summary="Listing featured",
+  response_class=Response,
+  responses=xmlresponsedef)
+def list_type_api_p(ltype = Path(..., example="featured")):
     PLUGINS = load_data()
     node = build_mp_frfp_apip(ltype, PLUGINS)
     return xmlresponse(node)
 
-@mp.route("/<ltype>/<market_id>/api/p")
-def list_type_market_api_p(ltype, market_id):
+
+@app.get("/{ltype}/{market_id}/api/p", 
+  summary="Listing featured for a specific market",
+  response_class=Response,
+  responses=xmlresponsedef)
+def list_type_market_api_p(
+  ltype = Path(..., example="featured"), 
+  market_id = Path(..., example="tg01")):
     PLUGINS = load_data()
     node = build_mp_frfp_apip(ltype, PLUGINS, market_id)
     return xmlresponse(node)
 
 
 
-@mp.route("/check")
+@app.get("/check",
+  summary="Check update site URLs",
+  response_class=Response,
+  responses={
+    200: { "description": "All update site URLS ok" },
+    500: { "description": "At least one update site URL failed" },
+  })
 def check_urls():
-    """Check all update site urls from data.yaml, return 500 in case of failures."""
+    """Check all update site URLs from data.yaml, return 500 in case of failures."""
     PLUGINS = load_data()
     urls = set() # a set, so we check every url only once
     broken = set()
@@ -541,17 +603,40 @@ def check_urls():
         if r.status_code != 200:
             broken.add(url)
     if len(broken) > 0:
-        return Response("Failed update site URLs: " + ", ".join(broken), status=500)
+        #return Response(content="Failed update site URLs: " + ", ".join(broken), status=500)
+        raise HTTPException(status_code=500, detail="Failed update site URLs: " + ", ".join(broken))
     else:
         return "All update site URLS ok"
 
 
-@mp.errorhandler(404)
-def not_found(error):
-    return render_template('404.html'), 404
+######################
+# exception handlers #
+######################
 
-if __name__ == "__main__":  
-   mp.run('0.0.0.0', debug=True)
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request, exc):
+  """Custom 404 page and plaintext response for exceptions."""
+  if(exc.status_code == 404):
+    #return 
+    html_content = """
+      <html>
+          <head>
+              <title>Not Found</title>
+          </head>
+          <body>
+              <h1>Method not found, check the <a href="/docs">API docs</a>.</h1>
+          </body>
+      </html>
+      """
+    return HTMLResponse(content=html_content, status_code=200)
+  else:
+    return PlainTextResponse(str(exc.detail), status_code=exc.status_code)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+  """Return plaintext for validation errors"""
+  return PlainTextResponse(str(exc), status_code=422)
 
 #########
 # FINIS #
