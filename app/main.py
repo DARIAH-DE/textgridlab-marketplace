@@ -476,7 +476,7 @@ def build_mp_search_apip(search_string, lopi, PLUGINS):
 ##########
 def xmlresponse(node):
     xml = etree.tostring(node, pretty_print=True, encoding='utf-8', xml_declaration=True)
-    return Response(content=xml, media_type="application/xml")
+    return Response(content=xml, media_type="application/xml; charset=utf-8")
 
 
 ##########
@@ -624,11 +624,11 @@ async def http_exception_handler(request, exc):
               <title>Not Found</title>
           </head>
           <body>
-              <h1>Method not found, check the <a href="/docs">API docs</a>.</h1>
+              <h1>Method not found, check the <a href="/docs">interactive</a> or the <a href="/redoc">redoc</a> API documentation.</h1>
           </body>
       </html>
       """
-    return HTMLResponse(content=html_content, status_code=200)
+    return HTMLResponse(content=html_content, status_code=404)
   else:
     return PlainTextResponse(str(exc.detail), status_code=exc.status_code)
 

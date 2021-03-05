@@ -1,7 +1,10 @@
 import pytest
-from marketplace import mp
+from starlette.testclient import TestClient
 
-@pytest.fixture
-def app():
-    return mp
+from app.main import app
 
+
+@pytest.fixture(scope="module")
+def test_app():
+    client = TestClient(app)
+    yield client  # testing happens here
