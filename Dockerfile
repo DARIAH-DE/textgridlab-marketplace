@@ -5,5 +5,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY ./app /app/app
 COPY ./tests /app/tests
-COPY ./app/ms.conf /app/
-COPY ./app/data.yaml /app/
+COPY ./default.conf /app/
+COPY ./data.yaml /app/

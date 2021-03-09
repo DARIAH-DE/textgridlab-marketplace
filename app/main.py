@@ -53,11 +53,12 @@ __date__ = "2017-05-19"
 ###########
 # Imports #
 ###########
-from lxml import etree
-import configparser
+import os
 import logging
 import yaml
 import requests
+from configparser import ConfigParser
+from lxml import etree
 from yaml.loader import BaseLoader
 
 from fastapi import FastAPI, Path, Response, HTTPException
@@ -67,8 +68,18 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # setting up things
 # both config and cache directory are in the same place as this script
-CONFIG = configparser.ConfigParser()
-CONFIG.read("ms.conf")
+CONFIG = ConfigParser()
+CONFIG.read('default.conf')
+
+# override config from the general section from environment, for configuration inside docker.
+# environment variables starting with MS_GENERAL_ are mapped, example:
+#   MS_GENERAL_LOGFILE -> CONFIG['General']['logfile']
+env_vars=os.environ
+for key in env_vars:
+  if(key.startswith("MS_GENERAL_")):
+    confkey=key[11:].lower()
+    confval=env_vars[key]
+    CONFIG.set("General", confkey, confval)
 
 LOGFILE = CONFIG['General']['logfile']
 LOGLEVEL = CONFIG['General']['loglevel']

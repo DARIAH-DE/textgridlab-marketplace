@@ -5,6 +5,7 @@ services:
     build: .
     image: local_marketplace
     command: /start-reload.sh
+    env_file: marketplace.env
     volumes:
       - ./app:/app/app
       - ./tests:/app/tests
