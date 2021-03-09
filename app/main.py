@@ -53,37 +53,33 @@ __date__ = "2017-05-19"
 ###########
 # Imports #
 ###########
-from lxml import etree
-from datetime import datetime
-import configparser
-import logging
-import cgi
 import os
-
-# had some big problems with getting the encoding right
-# answer on https://stackoverflow.com/questions/9322410/set-encoding-in-python-3-cgi-scripts
-# finally did the trick:
-# Ensures that subsequent open()s are UTF-8 encoded.
-# Mind you, this is dependant on the server it is running on!
-import locale
-import sys
-import socket
+import logging
 import yaml
-# list of servers we are working on. Seems to depend on login shell
-# disabling it for now
-# servers = ("ocropus", "textgrid-esx1")
-servers = ()
-if socket.gethostname() in servers:
-    locale.getpreferredencoding = lambda: 'UTF-8'
-    # Re-open standard files in UTF-8 mode.
-    sys.stdin = open('/dev/stdin', 'r')
-    sys.stdout = open('/dev/stdout', 'w')
-    sys.stderr = open('/dev/stderr', 'w')
+import requests
+from configparser import ConfigParser
+from lxml import etree
+from yaml.loader import BaseLoader
+
+from fastapi import FastAPI, Path, Response, HTTPException
+from fastapi.responses import PlainTextResponse, HTMLResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # setting up things
 # both config and cache directory are in the same place as this script
-CONFIG = configparser.ConfigParser()
-CONFIG.read("ms.conf")
+CONFIG = ConfigParser()
+CONFIG.read('default.conf')
+
+# override config from the general section from environment, for configuration inside docker.
+# environment variables starting with MS_GENERAL_ are mapped, example:
+#   MS_GENERAL_LOGFILE -> CONFIG['General']['logfile']
+env_vars=os.environ
+for key in env_vars:
+  if(key.startswith("MS_GENERAL_")):
+    confkey=key[11:].lower()
+    confval=env_vars[key]
+    CONFIG.set("General", confkey, confval)
 
 LOGFILE = CONFIG['General']['logfile']
 LOGLEVEL = CONFIG['General']['loglevel']
@@ -92,10 +88,6 @@ numeric_level = getattr(logging, LOGLEVEL.upper(), None)
 if not isinstance(numeric_level, int):
     raise ValueError('Invalid log level: %s' % loglevel)
 logging.basicConfig(filename=LOGFILE, level=numeric_level, format='%(asctime)s - %(levelname)s - %(message)s')
-
-CACHE_DIR = CONFIG['General']['cache_dir']
-if not os.path.exists(CACHE_DIR):
-    os.mkdir(os.path.expanduser(CACHE_DIR))
 
 WIKI_VIEW = CONFIG['General']['wiki_view']
 
@@ -190,13 +182,16 @@ MPLACE = MarketPlace(
 ################
 # YAML parsing #
 ################
-
 def plugin_constructor(loader, node):
     fields = loader.construct_mapping(node)
     return PlugIn(**fields)
 
 yaml.add_constructor('!PlugIn', plugin_constructor)
 
+def load_data():
+    with open('data.yaml', 'r', encoding='utf-8') as stream:
+        PLUGINS = yaml.load(stream, Loader=yaml.FullLoader)
+    return PLUGINS
     
 #############
 # Searching #
@@ -402,7 +397,11 @@ def build_mp_node_apip(plug_id, PLUGINS):
     foundation_element = etree.SubElement(node, "foundationmember").text = "1"
     url_element = etree.SubElement(node, "homepageurl").text = etree.CDATA(current_plugin.company_url)
     # icon of plugin
-    image_element = etree.SubElement(node, "image").text = etree.CDATA("https://dev2.dariah.eu/wiki/download/attachments/" + current_plugin.pageId + "/" + current_plugin.logo)
+    if current_plugin.logo.startswith('http'):
+        image_element = etree.SubElement(node, "image").text = etree.CDATA(current_plugin.logo)
+    else:
+        image_element = etree.SubElement(node, "image").text = etree.CDATA("https://dev2.dariah.eu/wiki/download/attachments/" + current_plugin.pageId + "/" + current_plugin.logo)
+
     # just a container
     ius_element = etree.SubElement(node, "ius")
     iu_element = etree.SubElement(ius_element, "iu").text = current_plugin.installableUnit
@@ -486,89 +485,169 @@ def build_mp_search_apip(search_string, lopi, PLUGINS):
 ##########
 # Output #
 ##########
-def goto_confluence(plug_id, PLUGINS):
-    """Redirect the browser to the Confluence page."""
+def xmlresponse(node):
+    xml = etree.tostring(node, pretty_print=True, encoding='utf-8', xml_declaration=True)
+    return Response(content=xml, media_type="application/xml; charset=utf-8")
 
-    for candidate in PLUGINS:
-        if candidate.plugId == plug_id:
-            goto_page = candidate.pageId
 
-    goto_url = WIKI_VIEW + goto_page
+##########
+# routes #
+##########
+app = FastAPI(
+    title="TextGridLab Marketplace",
+    description="This is the API for the TextGridLab Marketplace, an implementation of the [Eclipse Marketplace API](https://wiki.eclipse.org/Marketplace/REST)",
+    version="2.0.0",
+)
 
-    print('Status: 303 See Other')
-    # newline is important here
-    print('Location: ' + goto_url + '\n')
-# def goto_confluence ends here
+# define xml response content type for openapi
+xmlresponsedef = {
+  200: {
+    "content": {
+      "application/xml": {}
+    }
+  },
+  422: {
+    "description": "Validation Error",
+    "content": {
+      "text/plain": {}
+    }
+  }
+}
 
-def goto_main_page(main_page):
-    """Redirect the browser to the Confluence page. Doubling code is not good!"""
+@app.get(
+  "/api/p", 
+  summary="List Markets and Categories",
+  description="""This will return a listing of Markets and Categories, it includes URLs for each category, as well number of listings in each category.
+    See [Retrieving A listing of Markets and Categories](https://web.archive.org/web/20200220202907/https://wiki.eclipse.org/Marketplace/REST#Retrieving_A_listing_of_Markets_and_Categories)""",
+  response_class=Response,
+  responses=xmlresponsedef
+)
+def main_api_p():
+    node = build_mp_apip()
+    return xmlresponse(node)
 
-    goto_url = WIKI_VIEW + main_page
 
-    print('Status: 303 See Other')
-    # newline is important here
-    print('Location: ' + goto_url + '\n')
-# def goto_confluence ends here
+@app.get("/catalogs/api/p",   
+  summary="List all Catalogs",
+  description="""This will return a listing of all catalogs that are browsable with the MPC. It also includes basic branding parameters, 
+    like title and icon and strategies resolving dependencies.
+    See [Retrieving a listing of all catalogs](https://web.archive.org/web/20200220202907/https://wiki.eclipse.org/Marketplace/REST#Retrieving_a_listing_of_all_catalogs)""",
+  response_class=Response,
+  responses=xmlresponsedef
+)
+def catalogs_api_p():
+    node = build_mp_cat_apip()
+    return xmlresponse(node)
 
-def output_xml(node):
-    """Serve the XML for the Marketplace. Here you go."""
-    # output
-    print(HEADERLINE % 'xml')
-    # this is of a bytes type
-    xml_bytes = etree.tostring(node, pretty_print=True, encoding='utf-8', xml_declaration=True)
-    # convert this to a string
-    ship_out = xml_bytes.decode('utf-8')
-    # for debugging
-    print(ship_out)
-# def output_xml ends here
 
-################
-# The main bit #
-################
-def main():
-    """Parse what is received by the URL and ship it out to the relevant channel."""
+@app.get("/taxonomy/term/{market_id},{category_id}/api/p",
+  summary="Listings from a specific Market / Category",
+  response_class=Response,
+  responses=xmlresponsedef)
+def taxonomy_term_api_p(
+  market_id = Path(..., example="tg01"),
+  category_id = Path(..., example="stable")):
+    PLUGINS = load_data()
+    node = build_mp_taxonomy(market_id, category_id, PLUGINS)
+    return xmlresponse(node)
 
-    # arguments need to be read into something that the CGI can deal with
-    form = cgi.FieldStorage()
 
-    # yay! Plugins!
-    with open('data.yaml', 'r', encoding='utf-8') as stream:
-        PLUGINS = yaml.load(stream)
+@app.get("/node/{plugin_id}/api/p", 
+  summary="Specific Listing",
+  response_class=Response,
+  responses=xmlresponsedef)
+def show_node_api_p(plugin_id = Path(..., example="1")):
+    PLUGINS = load_data()
+    node = build_mp_content_apip(plugin_id, PLUGINS)
+    return xmlresponse(node)
 
-    if form.getvalue('action') == 'main':
-        node = build_mp_apip()
-        output_xml(node)
-    if form.getvalue('action') == 'catalogs':
-        node = build_mp_cat_apip()
-        output_xml(node)
-    if form.getvalue('action') == 'taxonomy':
-        node = build_mp_taxonomy(form.getvalue('marketId'), form.getvalue('categoryId'), PLUGINS)
-        output_xml(node)
-    # list covers all of recent, favorites, popular and featured
-    if form.getvalue('action') == 'list':
-        if form.getvalue('marketId') != None:
-            node = build_mp_frfp_apip(form.getvalue('type'), PLUGINS, form.getvalue('marketId'))
-        else:
-            node = build_mp_frfp_apip(form.getvalue('type'), PLUGINS)
-        output_xml(node)
-    if form.getvalue('action') == 'content':
-        node = build_mp_content_apip(form.getvalue('plugId'), PLUGINS)
-        output_xml(node)
-    if form.getvalue('action') == 'search':
-        node = build_mp_search_apip(form.getvalue('query'), lopi, PLUGINS)
-        output_xml(node)
 
-    if form.getvalue('action') == 'redirect':
-        goto_confluence(form.getvalue('plugId'), PLUGINS)
-    if form.getvalue('action') == 'goto_wiki':
-        goto_main_page(MPLACE.main_wiki_page)
+@app.get("/content/{plugin_id}/api/p", 
+  summary="Specific Listing",
+  response_class=Response,
+  responses=xmlresponsedef)
+def show_content_api_p(plugin_id = Path(..., example="1")):
+    PLUGINS = load_data()
+    node = build_mp_content_apip(plugin_id, PLUGINS)
+    return xmlresponse(node)
 
-    if not form.getvalue('action'):
-        print(HEADERLINE % 'html')
-        print('<html><p>undefined action. possible actions are: main, catalogs, taxonomy, list, content, search, redirect, goto_wiki</p></html>\n')
 
-if __name__ == "__main__":
-    main()
+@app.get("/{ltype}/api/p",
+  summary="Listing featured",
+  response_class=Response,
+  responses=xmlresponsedef)
+def list_type_api_p(ltype = Path(..., example="featured")):
+    PLUGINS = load_data()
+    node = build_mp_frfp_apip(ltype, PLUGINS)
+    return xmlresponse(node)
+
+
+@app.get("/{ltype}/{market_id}/api/p", 
+  summary="Listing featured for a specific market",
+  response_class=Response,
+  responses=xmlresponsedef)
+def list_type_market_api_p(
+  ltype = Path(..., example="featured"), 
+  market_id = Path(..., example="tg01")):
+    PLUGINS = load_data()
+    node = build_mp_frfp_apip(ltype, PLUGINS, market_id)
+    return xmlresponse(node)
+
+
+
+@app.get("/check",
+  summary="Check update site URLs",
+  response_class=Response,
+  responses={
+    200: { "description": "All update site URLS ok" },
+    500: { "description": "At least one update site URL failed" },
+  })
+def check_urls():
+    """Check all update site URLs from data.yaml, return 500 in case of failures."""
+    PLUGINS = load_data()
+    urls = set() # a set, so we check every url only once
+    broken = set()
+    for plugin in PLUGINS:
+        urls.add(plugin.update_url)
+    for url in urls:
+        r = requests.get(url)
+        if r.status_code != 200:
+            broken.add(url)
+    if len(broken) > 0:
+        #return Response(content="Failed update site URLs: " + ", ".join(broken), status=500)
+        raise HTTPException(status_code=500, detail="Failed update site URLs: " + ", ".join(broken))
+    else:
+        return "All update site URLS ok"
+
+
+######################
+# exception handlers #
+######################
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request, exc):
+  """Custom 404 page and plaintext response for exceptions."""
+  if(exc.status_code == 404):
+    #return 
+    html_content = """
+      <html>
+          <head>
+              <title>Not Found</title>
+          </head>
+          <body>
+              <h1>Method not found, check the <a href="/docs">interactive</a> or the <a href="/redoc">redoc</a> API documentation.</h1>
+          </body>
+      </html>
+      """
+    return HTMLResponse(content=html_content, status_code=404)
+  else:
+    return PlainTextResponse(str(exc.detail), status_code=exc.status_code)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+  """Return plaintext for validation errors"""
+  return PlainTextResponse(str(exc), status_code=422)
 
 #########
 # FINIS #

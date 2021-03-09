@@ -2,8 +2,7 @@
 
 This is a catalog software for negotiating between an Eclipse-based
 program and a wiki-like software that contains additional information
-about the plugins to be installed. It is a webservice run as a cgi,
-implemented in Python3.
+about the plugins to be installed. 
 
 # API
 
@@ -37,4 +36,19 @@ The following template could be used:
 ```
 
 required fields are: name, installableUnit, update_url, human_title, description and license
+
+# Develop and Test
+
+Run locally (for development)
+
+        docker-compose build
+        docker-compose up
+
+Then point your browser to localhost:5000, e.g: <http://localhost:5000/featured/api/p>
+
+Check the API docs: http://localhost:5000/docs or http://localhost:5000/redoc
+
+Pytest:
+
+        docker-compose exec web pytest .
 

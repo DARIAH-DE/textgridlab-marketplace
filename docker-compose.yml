@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    image: local_marketplace
+    command: /start-reload.sh
+    env_file: marketplace.env
+    volumes:
+      - ./app:/app/app
+      - ./tests:/app/tests
+    ports:
+      - 5000:80
