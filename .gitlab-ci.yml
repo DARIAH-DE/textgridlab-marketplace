@@ -15,7 +15,7 @@ variables:
   CONTAINER_RELEASE_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
   CONTAINER_RELEASE_IMAGE_LATEST: $CI_REGISTRY_IMAGE:latest
 
-before_script:
+.docker-setup_template: &docker-setup
   - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
 
 stages:
@@ -24,9 +24,10 @@ stages:
    - tag
    - release
 
-
 build:
   stage: build
+  before_script:
+    - *docker-setup
   script:
     - docker build -t $CONTAINER_TEST_IMAGE .
     - docker push $CONTAINER_TEST_IMAGE
@@ -34,12 +35,16 @@ build:
 
 test:
   stage: test
+  before_script:
+    - *docker-setup
   script:
     - docker pull $CONTAINER_TEST_IMAGE
     - docker run $CONTAINER_TEST_IMAGE pytest
 
 tag-dev-image:
   stage: tag
+  before_script:
+    - *docker-setup
   script:
     - docker pull $CONTAINER_TEST_IMAGE
     - docker tag $CONTAINER_TEST_IMAGE $CONTAINER_TEST_IMAGE_LATEST
@@ -50,12 +55,13 @@ tag-dev-image:
 
 release-image:
   stage: release
+  before_script:
+    - *docker-setup
   script:
     - docker pull $CONTAINER_TEST_IMAGE
     - docker tag $CONTAINER_TEST_IMAGE $CONTAINER_RELEASE_IMAGE
     - docker push $CONTAINER_RELEASE_IMAGE
     - docker tag $CONTAINER_RELEASE_IMAGE $CONTAINER_RELEASE_IMAGE_LATEST
     - docker push $CONTAINER_RELEASE_IMAGE_LATEST
-
   only:
     - main
