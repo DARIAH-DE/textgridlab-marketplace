@@ -1,0 +1,55 @@
+image: docker:latest
+
+services:
+   - docker:dind
+
+variables:
+  CONTAINER_TEST_IMAGE: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA
+  CONTAINER_TEST_IMAGE_LATEST: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:latest
+  CONTAINER_RELEASE_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  CONTAINER_RELEASE_IMAGE_LATEST: $CI_REGISTRY_IMAGE:latest
+
+before_script:
+  - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
+
+stages:
+   - build
+   - test
+   - tag
+   - release
+
+
+build:
+  stage: build
+  script:
+    - docker build -t $CONTAINER_IMAGE .
+    - docker push $CONTAINER_TEST_IMAGE
+
+
+test:
+  stage: test
+  script:
+    - docker pull $CONTAINER_TEST_IMAGE
+    - docker run $CONTAINER_TEST_IMAGE pytest
+
+tag-dev-image:
+  stage: tag
+  script:
+    - docker pull $CONTAINER_TEST_IMAGE
+    - docker tag $CONTAINER_TEST_IMAGE $CONTAINER_TEST_IMAGE_LATEST
+    - docker push $CONTAINER_TEST_IMAGE_LATEST
+  except:
+    - main
+
+
+release-image:
+  stage: release
+  script:
+    - docker pull $CONTAINER_TEST_IMAGE
+    - docker tag $CONTAINER_TEST_IMAGE $CONTAINER_RELEASE_IMAGE
+    - docker push $CONTAINER_RELEASE_IMAGE
+    - docker tag $CONTAINER_RELEASE_IMAGE $CONTAINER_RELEASE_IMAGE_LATEST
+    - docker push $CONTAINER_RELEASE_IMAGE_LATEST
+
+  only:
+    - main
