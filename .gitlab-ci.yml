@@ -1,0 +1,68 @@
+image: docker:latest
+
+services:
+   - docker:dind
+
+include:
+  - template: SAST.gitlab-ci.yml
+  - template: Dependency-Scanning.gitlab-ci.yml
+  - template: Container-Scanning.gitlab-ci.yml
+  - template: Code-Quality.gitlab-ci.yml
+  - template: Secret-Detection.gitlab-ci.yml
+
+variables:
+  CONTAINER_TEST_IMAGE: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA
+  CONTAINER_TEST_IMAGE_LATEST: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:latest
+  CONTAINER_RELEASE_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  CONTAINER_RELEASE_IMAGE_LATEST: $CI_REGISTRY_IMAGE:latest
+
+.docker-setup_template: &docker-setup
+  - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
+
+stages:
+   - build
+   - test
+   - tag
+   - release
+
+build:
+  stage: build
+  before_script:
+    - *docker-setup
+  script:
+    - docker build -t $CONTAINER_TEST_IMAGE .
+    - docker push $CONTAINER_TEST_IMAGE
+
+
+test:
+  stage: test
+  before_script:
+    - *docker-setup
+  script:
+    - docker pull $CONTAINER_TEST_IMAGE
+    - docker run $CONTAINER_TEST_IMAGE pytest
+
+tag-dev-image:
+  stage: tag
+  before_script:
+    - *docker-setup
+  script:
+    - docker pull $CONTAINER_TEST_IMAGE
+    - docker tag $CONTAINER_TEST_IMAGE $CONTAINER_TEST_IMAGE_LATEST
+    - docker push $CONTAINER_TEST_IMAGE_LATEST
+  except:
+    - main
+
+
+release-image:
+  stage: release
+  before_script:
+    - *docker-setup
+  script:
+    - docker pull $CONTAINER_TEST_IMAGE
+    - docker tag $CONTAINER_TEST_IMAGE $CONTAINER_RELEASE_IMAGE
+    - docker push $CONTAINER_RELEASE_IMAGE
+    - docker tag $CONTAINER_RELEASE_IMAGE $CONTAINER_RELEASE_IMAGE_LATEST
+    - docker push $CONTAINER_RELEASE_IMAGE_LATEST
+  only:
+    - main
