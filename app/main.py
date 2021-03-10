@@ -487,7 +487,7 @@ def build_mp_search_apip(search_string, lopi, PLUGINS):
 ##########
 def xmlresponse(node):
     xml = etree.tostring(node, pretty_print=True, encoding='utf-8', xml_declaration=True)
-    return Response(content=xml, media_type="application/xml; charset=utf-8")
+    return Response(content=xml, media_type='text/xml')
 
 
 ##########
@@ -503,7 +503,7 @@ app = FastAPI(
 xmlresponsedef = {
   200: {
     "content": {
-      "application/xml": {}
+      "text/xml": {}
     }
   },
   422: {
