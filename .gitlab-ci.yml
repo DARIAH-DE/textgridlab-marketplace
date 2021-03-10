@@ -22,7 +22,7 @@ stages:
 build:
   stage: build
   script:
-    - docker build -t $CONTAINER_IMAGE .
+    - docker build -t $CONTAINER_TEST_IMAGE .
     - docker push $CONTAINER_TEST_IMAGE
 
 
