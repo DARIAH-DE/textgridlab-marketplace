@@ -487,7 +487,7 @@ def build_mp_search_apip(search_string, lopi, PLUGINS):
 ##########
 def xmlresponse(node):
     xml = etree.tostring(node, pretty_print=True, encoding='utf-8', xml_declaration=True)
-    return Response(content=xml, media_type='text/xml')
+    return Response(content=xml, media_type='application/xml')
 
 
 ##########
@@ -497,13 +497,16 @@ app = FastAPI(
     title="TextGridLab Marketplace",
     description="This is the API for the TextGridLab Marketplace, an implementation of the [Eclipse Marketplace API](https://wiki.eclipse.org/Marketplace/REST)",
     version="2.0.0",
+    docs_url='/marketplace/docs',
+    redoc_url='/marketplace/redoc',
+    openapi_url='/marketplace/openapi.json'
 )
 
 # define xml response content type for openapi
 xmlresponsedef = {
   200: {
     "content": {
-      "text/xml": {}
+      "application/xml": {}
     }
   },
   422: {
@@ -514,8 +517,7 @@ xmlresponsedef = {
   }
 }
 
-@app.get(
-  "/api/p", 
+@app.get("/marketplace/api/p",
   summary="List Markets and Categories",
   description="""This will return a listing of Markets and Categories, it includes URLs for each category, as well number of listings in each category.
     See [Retrieving A listing of Markets and Categories](https://web.archive.org/web/20200220202907/https://wiki.eclipse.org/Marketplace/REST#Retrieving_A_listing_of_Markets_and_Categories)""",
@@ -527,7 +529,7 @@ def main_api_p():
     return xmlresponse(node)
 
 
-@app.get("/catalogs/api/p",   
+@app.get("/marketplace/catalogs/api/p",
   summary="List all Catalogs",
   description="""This will return a listing of all catalogs that are browsable with the MPC. It also includes basic branding parameters, 
     like title and icon and strategies resolving dependencies.
@@ -540,7 +542,7 @@ def catalogs_api_p():
     return xmlresponse(node)
 
 
-@app.get("/taxonomy/term/{market_id},{category_id}/api/p",
+@app.get("/marketplace/taxonomy/term/{market_id},{category_id}/api/p",
   summary="Listings from a specific Market / Category",
   response_class=Response,
   responses=xmlresponsedef)
@@ -552,7 +554,7 @@ def taxonomy_term_api_p(
     return xmlresponse(node)
 
 
-@app.get("/node/{plugin_id}/api/p", 
+@app.get("/marketplace/node/{plugin_id}/api/p",
   summary="Specific Listing",
   response_class=Response,
   responses=xmlresponsedef)
@@ -562,7 +564,7 @@ def show_node_api_p(plugin_id = Path(..., example="1")):
     return xmlresponse(node)
 
 
-@app.get("/content/{plugin_id}/api/p", 
+@app.get("/marketplace/content/{plugin_id}/api/p",
   summary="Specific Listing",
   response_class=Response,
   responses=xmlresponsedef)
@@ -572,7 +574,7 @@ def show_content_api_p(plugin_id = Path(..., example="1")):
     return xmlresponse(node)
 
 
-@app.get("/{ltype}/api/p",
+@app.get("/marketplace/{ltype}/api/p",
   summary="Listing featured",
   response_class=Response,
   responses=xmlresponsedef)
@@ -582,7 +584,7 @@ def list_type_api_p(ltype = Path(..., example="featured")):
     return xmlresponse(node)
 
 
-@app.get("/{ltype}/{market_id}/api/p", 
+@app.get("/marketplace/{ltype}/{market_id}/api/p",
   summary="Listing featured for a specific market",
   response_class=Response,
   responses=xmlresponsedef)
@@ -595,7 +597,7 @@ def list_type_market_api_p(
 
 
 
-@app.get("/check",
+@app.get("/marketplace/check",
   summary="Check update site URLs",
   response_class=Response,
   responses={
@@ -635,7 +637,7 @@ async def http_exception_handler(request, exc):
               <title>Not Found</title>
           </head>
           <body>
-              <h1>Method not found, check the <a href="/docs">interactive</a> or the <a href="/redoc">redoc</a> API documentation.</h1>
+              <h1>Method not found, check the <a href="/marketplace/docs">interactive</a> or the <a href="/marketplace/redoc">redoc</a> API documentation.</h1>
           </body>
       </html>
       """

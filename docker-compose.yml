@@ -5,6 +5,7 @@ services:
     build: .
     image: local_marketplace
     command: /start-reload.sh
+#    command: uvicorn app.main:app --root-path /marketplace --host 0.0.0.0 --port 80
     env_file: marketplace.env
     volumes:
       - ./app:/app/app
