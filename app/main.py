@@ -59,7 +59,6 @@ import yaml
 import requests
 from configparser import ConfigParser
 from lxml import etree
-from yaml.loader import BaseLoader
 
 from fastapi import FastAPI, Path, Response, HTTPException
 from fastapi.responses import PlainTextResponse, HTMLResponse
@@ -186,11 +185,11 @@ def plugin_constructor(loader, node):
     fields = loader.construct_mapping(node)
     return PlugIn(**fields)
 
-yaml.add_constructor('!PlugIn', plugin_constructor)
+yaml.SafeLoader.add_constructor('!PlugIn', plugin_constructor)
 
 def load_data():
     with open('data.yaml', 'r', encoding='utf-8') as stream:
-        PLUGINS = yaml.load(stream, Loader=yaml.FullLoader)
+        PLUGINS = yaml.safe_load(stream)
     return PLUGINS
     
 #############
