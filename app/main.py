@@ -59,7 +59,6 @@ import yaml
 import requests
 from configparser import ConfigParser
 from lxml import etree
-from yaml.loader import BaseLoader
 
 from fastapi import FastAPI, Path, Response, HTTPException
 from fastapi.responses import PlainTextResponse, HTMLResponse
@@ -186,78 +185,12 @@ def plugin_constructor(loader, node):
     fields = loader.construct_mapping(node)
     return PlugIn(**fields)
 
-yaml.add_constructor('!PlugIn', plugin_constructor)
+yaml.SafeLoader.add_constructor('!PlugIn', plugin_constructor)
 
 def load_data():
     with open('data.yaml', 'r', encoding='utf-8') as stream:
-        PLUGINS = yaml.load(stream, Loader=yaml.FullLoader)
+        PLUGINS = yaml.safe_load(stream)
     return PLUGINS
-    
-#############
-# Searching #
-#############
-def search_files(search_string, lopi):
-    """Search the text nodes of all plugins using the unquoted form of the
-    search string that came in by URL. If search string is found, add
-    to a list and return the list of plugin_ids that contain the
-    search term.
-
-
-GET /~kthoden/m3/api/p/search/apachesolr_search/k%C3%B6nnen?filters=tid:tg0120%20tid:5&product=info.textgrid.lab.core.application.base_product&platform.version=4.4.2.v20150204-1700&os=macosx&java.version=1.8.0_31&client=org.eclipse.epp.mpc.core&product.version=0.0.3.201503251333&runtime.version=3.10.0.v20140318-2214&ws=cocoa&nl=de_DE HTTP/1.1" 302 666 "-" "Apache-HttpClient/4.3.6 (java 1.5)"
- 
-    Filters need to be done!
-
-/apachesolr_search/k%C3%B6nnen?filters=tid:tg0120%20tid:5&product=
-nur MS ausgewählt
-/~kthoden/m3/api/p/search/apachesolr_search/musik?filters=tid:tg0120&product=info
-nur Kategorie
-/~kthoden/m3/api/p/search/apachesolr_search/musik?filters=tid:5&produc
-beide
-/~kthoden/m3/api/p/search/apachesolr_search/musik?filters=tid:tg0120%20tid:5&produ
-
-   """
-
-    import urllib.parse
-
-    # list of successful hits
-    hits = []
-
-    # sanitize search string
-    sanitized_search_string = urllib.parse.unquote_plus(search_string)
-    # get all cached files
-    for plugin_id in lopi:
-        cached_page = CACHE_DIR + "/" + plugin_id + ".xml"
-        # collect text nodes
-        textnodes = collect_text_nodes(cached_page)
-        # search string
-        if sanitized_search_string.lower() in textnodes.lower():
-            hits.append(plugin_id)
-
-    return hits
-# search_files ends here
-
-def collect_text_nodes(cached_file):
-    """Collect the text nodes and put them in one string."""
-    from lxml import etree
-    import re
-    
-    result = ""
-
-    XML = etree.parse(cached_file)
-    textnodes = XML.findall(".//td")
-
-    for node in textnodes:
-        # search only strings (not NoneType)
-        if type(node.text) != str:
-            continue
-        # also, just go on if you find empty nodes
-        if re.match(r'\n +', node.text):
-            continue
-        result += node.text
-        # add space between text strings
-        result += " "
-    return result
-# collect_text_nodes ends here
 
 #############################################
 # Here starts the building of the XML nodes #
