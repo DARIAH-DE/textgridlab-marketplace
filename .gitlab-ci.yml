@@ -40,7 +40,7 @@ test:
     - *docker-setup
   script:
     - docker pull $CONTAINER_TEST_IMAGE
-    - docker run $CONTAINER_TEST_IMAGE pytest
+    - docker run $CONTAINER_TEST_IMAGE -m pytest
 
 tag-dev-image:
   stage: tag
