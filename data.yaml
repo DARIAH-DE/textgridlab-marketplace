@@ -31,7 +31,7 @@
 #  owner:
 #  company:
 #  company_url:
-  update_url: http://download.digital-humanities.de/updates/textgridlab/sadepublish/
+  update_url: https://dariah-de.pages.gwdg.de/textgridlab/textgridlab-sadepublish-plugin/
   human_title: SADE Publish Tool
   description: |
     Mit SADE (Skalierbare Architektur für Digitale Editionen) 
@@ -155,7 +155,7 @@
   owner: TextGrid
   company: TextGrid
 #  company_url:
-  update_url: http://ci.de.dariah.eu/jenkins/view/TextGridLab/job/RDF-Object-TextGridLab-Plugin/ws/p2repository/target/repository/
+  update_url: https://dariah-de.pages.gwdg.de/textgridlab/textgridlab-rdf-object-plugin
   human_title: RDF Object Editor
   description: |
     TextGridLab plugin for the RDF Object Editor
@@ -187,6 +187,46 @@
 
 - !PlugIn
   plugId: 9
+  name: oxygen-23
+  category: 6
+  pageId: 34344150
+  featured: true
+  installableUnit: com.oxygenxml.editor
+  owner: Syncro Soft
+  company: Syncro Soft
+  company_url: Syncro Soft
+  update_url: http://archives.oxygenxml.com/Oxygen/Editor/InstData23.1/Eclipse/site.xml
+  human_title: Oxygen XML Editor - 23.1
+  description: |
+    Der Oxygen XML Editor ist eine vollständige XML-Entwicklungsumgebung,
+    die alle Werkzeuge mitbringt, um mit einer großen Menge von XML-Standards
+    und -Technologien arbeiten zu können.
+  logo: IconOxygen70.png
+  license: http://www.oxygenxml.com/eula.html
+  screenshot: screenshot-oxygenxml_text_editor.png
+
+- !PlugIn
+  plugId: 9
+  name: oxygen-22
+  category: 6
+  pageId: 34344150
+  featured: true
+  installableUnit: com.oxygenxml.editor
+  owner: Syncro Soft
+  company: Syncro Soft
+  company_url: Syncro Soft
+  update_url: http://archives.oxygenxml.com/Oxygen/Editor/InstData22.1/Eclipse/site.xml
+  human_title: Oxygen XML Editor - 22.1
+  description: |
+    Der Oxygen XML Editor ist eine vollständige XML-Entwicklungsumgebung,
+    die alle Werkzeuge mitbringt, um mit einer großen Menge von XML-Standards
+    und -Technologien arbeiten zu können.
+  logo: IconOxygen70.png
+  license: http://www.oxygenxml.com/eula.html
+  screenshot: screenshot-oxygenxml_text_editor.png
+
+- !PlugIn
+  plugId: 9
   name: oxygen-21
   category: 6
   pageId: 34344150
@@ -195,8 +235,8 @@
   owner: Syncro Soft
   company: Syncro Soft
   company_url: Syncro Soft
-  update_url: http://archives.oxygenxml.com/Oxygen/Editor/InstData21.0/Eclipse/site.xml
-  human_title: Oxygen XML Editor - 21.0
+  update_url: http://archives.oxygenxml.com/Oxygen/Editor/InstData21.1/Eclipse/site.xml
+  human_title: Oxygen XML Editor - 21.1
   description: |
     Der Oxygen XML Editor ist eine vollständige XML-Entwicklungsumgebung,
     die alle Werkzeuge mitbringt, um mit einer großen Menge von XML-Standards
@@ -252,7 +292,7 @@
   pageId: 000
 #  featured: true
   installableUnit: info.textgrid.lab.iiif.feature.viewer.feature.group
-  update_url: https://ci.de.dariah.eu/gitlab-p2/dariah-de/textgridlab-iiif-plugin/-/jobs/artifacts/develop/raw/p2repository/target/repository/
+  update_url: https://dariah-de.pages.gwdg.de/textgridlab/textgridlab-iiif-plugin/
   human_title: IIIF Demonstrator for 2019 IIIF Conference
   description: |
     This plugins installs a TextGriLab component for generating and viewing IIIF manifests
