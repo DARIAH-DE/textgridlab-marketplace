@@ -13,7 +13,6 @@ WORKDIR /app
 
 COPY ./app /app/app
 COPY ./tests /app/tests
-COPY ./default.conf /app/
-COPY ./data.yaml /app/
+COPY ./etc app/etc
 
 CMD ["-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5000"]

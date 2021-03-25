@@ -68,7 +68,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 # setting up things
 # both config and cache directory are in the same place as this script
 CONFIG = ConfigParser()
-CONFIG.read('default.conf')
+CONFIG.read('etc/default.conf')
 
 # override config from the general section from environment, for configuration inside docker.
 # environment variables starting with MS_GENERAL_ are mapped, example:
@@ -188,7 +188,7 @@ def plugin_constructor(loader, node):
 yaml.SafeLoader.add_constructor('!PlugIn', plugin_constructor)
 
 def load_data():
-    with open('data.yaml', 'r', encoding='utf-8') as stream:
+    with open('etc/data.yaml', 'r', encoding='utf-8') as stream:
         PLUGINS = yaml.safe_load(stream)
     return PLUGINS
 
