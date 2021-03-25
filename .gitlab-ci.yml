@@ -24,6 +24,7 @@ stages:
    - test
    - tag
    - release
+   - deploy
 
 build:
   stage: build
@@ -40,7 +41,12 @@ test:
     - *docker-setup
   script:
     - docker pull $CONTAINER_TEST_IMAGE
-    - docker run $CONTAINER_TEST_IMAGE -m pytest
+    - docker run -v $PWD/htmlcov:/app/htmlcov $CONTAINER_TEST_IMAGE -m pytest --cov-report term --cov-report html --cov=app.main
+  coverage: "/TOTAL.+ ([0-9]{1,3}%)/"
+  artifacts:
+    paths:
+      - htmlcov
+
 
 tag-dev-image:
   stage: tag
@@ -66,3 +72,16 @@ release-image:
     - docker push $CONTAINER_RELEASE_IMAGE_LATEST
   only:
     - main
+
+pages:
+  stage: deploy
+  dependencies:
+    - test
+  script:
+   - mkdir public
+   - mv htmlcov public/coverage
+  artifacts:
+    paths:
+      - public
+  only:
+    - develop
