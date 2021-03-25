@@ -1,0 +1,14 @@
+# no docker related
+Dockerfile
+docker-compose.yml
+*.env
+
+# no pycaches
+*/__pycache__/
+*/.pytest_cache
+
+# no logs
+*.log
+
+# and no dotfiles
+.*
