@@ -41,7 +41,7 @@ test:
     - *docker-setup
   script:
     - docker pull $CONTAINER_TEST_IMAGE
-    - docker run $CONTAINER_TEST_IMAGE -m pytest --cov-report term --cov-report html --cov=app.main
+    - docker run -v $PWD/htmlcov:/app/htmlcov $CONTAINER_TEST_IMAGE -m pytest --cov-report term --cov-report html --cov=app.main
   coverage: "/TOTAL.+ ([0-9]{1,3}%)/"
   artifacts:
     paths:
