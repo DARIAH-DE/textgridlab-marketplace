@@ -393,28 +393,6 @@ def build_mp_content_apip(plug_id, PLUGINS):
     return mplace
 # def build_mp_content_apip ends here
 
-def build_mp_search_apip(search_string, lopi, PLUGINS):
-    """Return nodes matching a search string."""
-    # this is a list
-    found_plugins = search_files(search_string, lopi)
-
-    mplace = etree.Element("marketplace")
-    # part of the specification is also an attribute URL (as in url = "http://what.is.th.is")
-    # not sure what that is used for. But works also without.
-    search = etree.SubElement(mplace, "search", term = search_string, count = str(len(found_plugins)))
-
-    # make the nodes here as a subElement of the list
-    for item in found_plugins:
-        # ugly here:
-        for plugin in PLUGINS:
-            if item == plugin.pageId:
-                plugin_id = plugin.plugId
-        new_node = build_mp_node_apip(plugin_id, PLUGINS)
-        search.insert(1, new_node)
-
-    return mplace
-# def build_mp_search_apip ends here
-
 ##########
 # Output #
 ##########
