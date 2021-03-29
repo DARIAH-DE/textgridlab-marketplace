@@ -1,3 +1,5 @@
+from app.main import load_data
+
 def test_main_api_p(test_app):
     response = test_app.get('/marketplace/api/p')
     assert response.status_code == 200
@@ -55,3 +57,31 @@ def test_404(test_app):
     response = test_app.get('/marketplace/nopage')
     assert response.status_code == 404
     assert response.headers['Content-Type'] == 'text/html; charset=utf-8'
+
+def test_check_urls_all_ok(test_app, requests_mock):
+    requests_mock.get(
+        'http://testserver/marketplace/check', real_http=True
+    )
+
+    plugins = load_data()
+    for plugin in plugins:
+        requests_mock.get(
+            plugin.update_url, status_code=200
+        )
+
+    response = test_app.get('/marketplace/check')
+    assert response.status_code == 200
+
+def test_check_urls_404(test_app, requests_mock):
+    requests_mock.get(
+        'http://testserver/marketplace/check', real_http=True
+    )
+
+    plugins = load_data()
+    for plugin in plugins:
+        requests_mock.get(
+            plugin.update_url, status_code=404
+        )
+
+    response = test_app.get('/marketplace/check')
+    assert response.status_code == 500
